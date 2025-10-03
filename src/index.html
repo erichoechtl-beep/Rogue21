@@ -2,277 +2,243 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Rogue 21 - Boss Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rogue 21 Boss Edition</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        /* Lade Inter-Schriftart und definiere globale Stile */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap');
-        
-        /* 1. POKERTISCH-DESIGN & GLOBALE STILE */
+        /* Stellt sicher, dass die App den gesamten Bildschirm einnimmt */
         html, body {
-            font-family: 'Inter', sans-serif;
-            /* Grüner Filz-Effekt für Pokertisch */
-            background-color: #0b0f1a;
-            background-image: radial-gradient(circle at center, #16a34a 0%, #15803d 50%, #166534 100%);
-            color: #e5e7eb;
-            height: 100%;
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            min-height: 100vh; /* Mindestens die Höhe des Viewports */
             overflow: hidden; 
-        }
-        
-        /* App Container behält den dunklen Rahmen für Menüs */
-        #app-container {
-            width: 100%; 
-            min-height: 100vh;
-            padding-top: env(safe-area-inset-top, 1rem);
-            padding-bottom: env(safe-area-inset-bottom, 1rem);
-            padding-left: env(safe-area-inset-left, 0.5rem);
-            padding-right: env(safe-area-inset-right, 0.5rem);
-            
-            max-width: 600px; 
-            margin-left: auto;
-            margin-right: auto;
-            overflow-y: auto; 
+            box-sizing: border-box;
         }
 
-        /* Spielbereich wird vom Filz dominiert */
-        #gameplay-state {
-            background-color: rgba(0, 0, 0, 0.3); /* Leicht transparent auf Filz */
-            border-color: #374151; 
-        }
-        
-        .smooth-panel {
-            background-color: #1a202c; 
-            border: 1px solid #374151;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
-            border-radius: 1rem; 
-        }
-        
-        .smooth-btn {
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            font-weight: 700;
-            border-radius: 0.75rem;
-        }
-        .smooth-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
-        }
-        .smooth-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-        }
-
-        /* 2. KARTEN-STYLES & ANIMATIONEN (FLÜSSIGER) */
-        
-        .card {
-            background-color: #ffffff;
-            color: #1f2937;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            display: inline-flex;
+        body {
+            display: flex;
             flex-direction: column;
-            justify-content: space-around;
-            align-items: center;
-            position: relative; 
-            font-size: 1.5rem;
-            width: 70px;
-            height: 100px;
-            margin: 4px; /* Etwas weniger Margin für dichteres Layout */
-            transform: translateY(-20px) scale(0.9);
-            opacity: 0;
-            /* Kürzere, flüssigere Animation */
-            animation: deal-card 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; 
-            user-select: none;
-            cursor: default;
+            background-color: #1f2937; /* Dunkler Hintergrund, passend zu den UI-Farben */
+            font-family: ui-sans-serif, system-ui, sans-serif;
         }
-        @keyframes deal-card {
-            to {
-                transform: translateY(0) scale(1);
-                opacity: 1;
-            }
-        }
-        .suit-red { color: #ef4444; } 
-        .suit-black { color: #1f2937; } 
         
-        /* Kartenrücken-Stile */
+        /* Haupt-Container-Layout */
+        #app-container {
+            flex-grow: 1; 
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%; 
+            padding: 1rem;
+            max-width: 900px; /* Optional: Maximale Breite für Desktop-Ansicht */
+            margin: 0 auto; /* Zentriert auf großen Bildschirmen */
+        }
+        
+        /* Karten-Styling */
+        .card {
+            background-color: white;
+            color: black;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 75px;
+            height: 110px;
+            display: inline-flex; /* Anpassung für Android 6 Kompatibilität */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0 4px 8px 4px; /* Abstand zwischen den Karten */
+            position: relative;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            transform-origin: bottom center;
+            animation: deal 0.5s ease-out forwards;
+            opacity: 0;
+            vertical-align: top;
+        }
+
+        .suit-red { color: #dc2626; } /* Rot für Herz und Karo */
+        .suit-black { color: #1f2937; } /* Dunkelblau/Schwarz für Kreuz und Pik */
+
         .card-back {
-            color: #e5e7eb;
-            font-size: 1.25rem;
+            background-color: #4f46e5; /* Standard Lila */
+            color: white;
+            border-color: #6366f1;
+            font-size: 20px;
+            font-family: monospace;
             display: flex;
             justify-content: center;
             align-items: center;
-            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s;
-        }
-        .skin-default { background-color: #6d28d9; }
-        .skin-gold { 
-            background: linear-gradient(135deg, #fcd34d 0%, #d97706 100%); 
-            color: #333;
-            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-        .skin-cyber { 
-            background: #111827;
-            background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%), linear-gradient(90deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%);
-            background-size: 10px 10px;
-            color: #0ff;
-        }
-        .skin-crimson { 
-            background: radial-gradient(circle at center, #b91c1c 0%, #7f1d1d 100%); 
-            color: #fee2e2;
+            
+            /* SKINS */
+            &.skin-gold { background-color: #f59e0b; border-color: #fbbf24; }
+            &.skin-cyber { background-color: #1e3a8a; border-color: #3b82f6; }
+            &.skin-crimson { background-color: #991b1b; border-color: #ef4444; }
         }
 
-        /* Benachrichtigungsstil */
+        /* Animation für das Austeilen der Karten */
+        @keyframes deal {
+            0% { transform: translateY(-50px) scale(0.5); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        /* Allgemeine UI-Klassen */
+        .smooth-panel {
+            background-color: #374151;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #4b5563;
+        }
+        .smooth-btn {
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .smooth-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        .smooth-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .smooth-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Notification Box */
         #notification-box {
             position: fixed;
-            top: 0;
+            top: 10px;
             left: 50%;
-            transform: translateX(-50%) translateY(-100%);
-            z-index: 1000;
-            padding: 1rem 1.5rem;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 10px 20px;
+            border-radius: 8px;
             color: white;
             font-weight: bold;
-            border-radius: 0 0 10px 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-            transition: transform 0.5s ease-out;
+            z-index: 1000;
+            transition: transform 0.5s ease-out, opacity 0.5s;
+            opacity: 0;
         }
         #notification-box.show {
             transform: translateX(-50%) translateY(0);
+            opacity: 1;
         }
     </style>
 </head>
-<body class="flex flex-col items-center">
+<body class="text-white">
+    <div id="app-container" class="space-y-4">
 
-    <div id="notification-box" class="hidden"></div>
-
-    <div id="game-over-overlay" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden transition-opacity duration-500">
-        <div class="smooth-panel p-8 w-11/12 max-w-md text-center bg-red-900/40 border-red-700/60">
-            <h1 class="text-4xl font-extrabold text-red-400 mb-4 animate-pulse">GAME OVER</h1>
-            <p class="text-lg text-gray-300 mb-6">Dein Run endete auf Encounter <span id="final-floor">0</span>.</p>
-            <p class="text-xl font-bold text-yellow-300 mb-8">Gold gesammelt: <span id="final-gold">0</span> 💰</p>
-            <button onclick="resetGame()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white w-full py-3">
-                Neuen Run starten
-            </button>
-        </div>
-    </div>
-
-    <div id="info-modal-overlay" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
-        <div class="smooth-panel p-6 md:p-10 max-w-lg w-11/12 text-center bg-gray-800 border-blue-600/60 border-2">
-            <h2 id="modal-title" class="text-3xl font-bold text-blue-400 mb-6 border-b border-gray-600 pb-2"></h2>
-            <div id="modal-content" class="text-left text-gray-300 space-y-4 text-base max-h-96 overflow-y-auto pr-2">
-                </div>
-            <button onclick="closeModal()" class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 mt-8">
-                Zurück zum Menü
-            </button>
-        </div>
-    </div>
-
-    <div id="app-container" class="flex flex-col items-center">
-
-        <div id="main-menu" class="smooth-panel flex flex-col items-center justify-center w-full text-center p-8 md:p-12 min-h-[90vh] bg-black/70">
-            <h1 class="text-6xl font-black text-purple-400 mb-12 tracking-wide">ROGUE 21</h1>
-            
-            <div class="space-y-4 w-full max-w-xs">
-                <button onclick="startNewRun()" class="smooth-btn bg-green-500 hover:bg-green-600 text-white w-full py-4 text-xl">
-                    Neuer Run
-                </button>
-                <button onclick="showHighscores()" class="smooth-btn bg-blue-500 hover:bg-blue-600 text-white w-full py-3 text-lg">
-                    Highscores
-                </button>
-                <button onclick="showAchievements()" class="smooth-btn bg-yellow-500 hover:bg-yellow-600 text-white w-full py-3 text-lg">
-                    Achievments
-                </button>
-                <button onclick="showCosmeticsShop()" class="smooth-btn bg-purple-500 hover:bg-purple-600 text-white w-full py-3 text-lg">
-                    Cosmetics Shop
-                </button>
+        <div class="flex justify-between items-center smooth-panel p-3">
+            <div class="flex items-center space-x-4">
+                <span id="player-health" class="text-red-400 font-black text-xl">100/100 ❤️</span>
+                <span id="player-gold" class="text-yellow-400 font-black text-xl">0 💰</span>
+                <span id="reroll-charges-display" class="text-blue-400 font-black text-xl">Würfel: 0</span>
             </div>
-            <p class="text-sm text-gray-400 mt-8">Gesamtpunkte: <span id="total-points" class="font-bold text-white">0</span> ⭐</p>
+            <span id="current-floor" class="text-lg font-black bg-blue-700 py-1 px-3 rounded-full">Encounter 1</span>
+        </div>
+        
+        <div id="boss-status-bar" class="smooth-panel p-3 bg-red-800/50 border-red-500 hidden">
+            <p class="font-bold text-center mb-1">BOSS HEALTH</p>
+            <div class="relative pt-1">
+                <div class="overflow-hidden h-4 mb-4 text-xs flex rounded bg-red-200">
+                    <div id="boss-health-bar" style="width: 100%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500 transition-all duration-300 ease-out"></div>
+                </div>
+                <div id="boss-health" class="absolute top-0 left-0 right-0 text-center font-black text-xs text-white"></div>
+            </div>
         </div>
 
-        <div id="shop-container" class="smooth-panel p-6 md:p-8 w-full hidden bg-black/70">
-            <h2 class="text-3xl font-bold text-yellow-400 text-center mb-6">Der Händler</h2>
-            <p class="text-center text-lg mb-6 text-gray-300">Dein Gold: <span id="shop-gold-display" class="font-bold text-yellow-300">0</span> 💰</p>
-            <div id="shop-items" class="space-y-4">
-                </div>
+        <div id="notification-box" class="hidden"></div>
+        
+        <div id="main-menu" class="flex-grow flex flex-col justify-center items-center space-y-6">
+            <h1 class="text-6xl font-black text-yellow-400 drop-shadow-lg">Rogue 21</h1>
+            <h2 class="text-2xl font-bold text-red-500 drop-shadow-lg">Boss Edition</h2>
+
+            <button onclick="startNewRun()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-64 py-4 text-xl">Neuer Run</button>
+            <button onclick="showCosmeticsShop()" class="smooth-btn bg-purple-600 hover:bg-purple-700 text-white w-64 py-4 text-xl">Skins & Punkte (<span id="total-points">0</span> ⭐)</button>
+            <button onclick="showHighscores()" class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white w-64 py-4 text-xl">Highscores</button>
+            <button onclick="showAchievements()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-64 py-4 text-xl">Achievements</button>
+        </div>
+
+        <div id="gameplay-state" class="flex-grow flex flex-col justify-between hidden">
+            <div class="smooth-panel p-3 mb-2">
+                <h3 id="dealer-title" class="text-lg font-bold text-center mb-2">Dealer's Hand</h3>
+                <div id="dealer-hand" class="flex justify-center flex-wrap">
+                    </div>
+            </div>
             
-            <div class="flex flex-col space-y-3 mt-8">
-                <button onclick="exitShop()" class="smooth-btn bg-purple-600 hover:bg-purple-700 text-white w-full py-3 text-lg">
-                    Weiter zum nächsten Encounter
-                </button>
-                <button onclick="backToMenuFromShop()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-2 text-base">
-                    Run aufgeben & zum Menü
-                </button>
+            <div id="message-box" class="text-center font-black text-2xl py-3 rounded-lg my-4 transition-colors duration-300">Mach deinen Zug!</div>
+
+            <div class="smooth-panel p-3 mt-2">
+                <h3 class="text-lg font-bold text-center mb-2">Deine Hand (<span id="player-score">0</span>)</h3>
+                <div id="player-hand" class="flex justify-center flex-wrap">
+                    </div>
+            </div>
+
+            <div class="flex justify-center space-x-4 pt-4 pb-2">
+                <button id="btn-hit" onclick="hit()" class="smooth-btn bg-green-500 hover:bg-green-600 w-40 py-3 text-lg">Hit (Karte ziehen)</button>
+                <button id="btn-stand" onclick="stand()" class="smooth-btn bg-red-500 hover:bg-red-600 w-40 py-3 text-lg">Stand (Stehen)</button>
+            </div>
+        </div>
+
+        <div id="shop-container" class="flex-grow flex flex-col justify-center hidden">
+            <div class="smooth-panel p-6 space-y-4">
+                <h2 class="text-3xl font-black text-center text-yellow-400 mb-4">Shop</h2>
+                <div class="flex justify-between items-center text-xl font-bold p-2 bg-gray-800 rounded">
+                    <span>Dein Gold:</span>
+                    <span id="shop-gold-display" class="text-yellow-400">0 💰</span>
+                </div>
+                
+                <h3 class="text-xl font-bold text-gray-300 pt-2 border-t border-gray-600">Items (Wähle 3)</h3>
+                <div id="shop-items" class="space-y-3">
+                    </div>
+
+                <div class="pt-4 flex justify-between space-x-4">
+                    <button onclick="exitShop()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white flex-grow py-3 text-lg">Weiter zum nächsten Encounter</button>
+                    <button onclick="backToMenuFromShop()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 text-lg">Aufgeben</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="cosmetics-shop" class="flex-grow flex flex-col justify-center hidden">
+            <div class="smooth-panel p-6 space-y-4">
+                <h2 class="text-3xl font-black text-center text-purple-400 mb-4">Cosmetics Shop</h2>
+                <div class="flex justify-between items-center text-xl font-bold p-2 bg-gray-800 rounded">
+                    <span>Deine Punkte:</span>
+                    <span id="cosmetics-points-display" class="text-purple-400">0 ⭐</span>
+                </div>
+                
+                <h3 class="text-xl font-bold text-gray-300 pt-2 border-t border-gray-600">Kartenrücken</h3>
+                <div id="card-back-shop-items" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    </div>
+                
+                <button onclick="ui.changeState('MENU')" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-3 text-lg mt-4">Zurück zum Menü</button>
             </div>
         </div>
         
-        <div id="cosmetics-shop" class="smooth-panel p-6 md:p-8 w-full hidden bg-black/70">
-            <h2 class="text-3xl font-bold text-purple-400 text-center mb-6">Cosmetics Shop</h2>
-            <p class="text-center text-lg mb-6 text-gray-300">Deine Punkte: <span id="cosmetics-points-display" class="font-bold text-yellow-300">0</span> ⭐</p>
-            
-            <h3 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Kartenrücken</h3>
-            <div id="card-back-shop-items" class="grid grid-cols-2 gap-4">
-                </div>
-            
-            <button onclick="ui.changeState(GAME_STATE.MENU)" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-3 text-lg mt-8">
-                Zurück zum Hauptmenü
-            </button>
+        <div id="game-over-overlay" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center z-50 hidden">
+            <h1 class="text-6xl font-black text-red-500 mb-6 drop-shadow-xl">GAME OVER</h1>
+            <p class="text-xl text-white mb-2">Du hast es bis Encounter <span id="final-floor" class="text-yellow-400 font-bold">1</span> geschafft.</p>
+            <p class="text-xl text-white mb-8">Gesammeltes Gold: <span id="final-gold" class="text-yellow-400 font-bold">0</span> 💰</p>
+            <button onclick="resetGame()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-64 py-4 text-xl">Neuer Versuch</button>
         </div>
 
-        <div id="gameplay-state" class="smooth-panel p-4 md:p-6 w-full hidden">
-            
-            <div class="flex justify-between items-center mb-4 p-3 bg-gray-800/50 rounded-lg border border-purple-500/40 shadow-inner">
-                <div class="flex items-center text-lg md:text-xl font-bold">
-                    <span role="img" aria-label="Health" class="mr-2 text-red-400">❤️</span>
-                    <span id="player-health">100/100</span>
-                </div>
-                <div class="text-center font-bold text-base md:text-lg text-white">
-                    Enc: <span id="current-floor" class="text-green-400">1</span>
-                    <span id="reroll-charges-display" class="text-xs text-blue-300 block">Würfel: 0</span>
-                </div>
-                <div class="flex items-center text-lg md:text-xl font-bold">
-                    <span role="img" aria-label="Gold" class="mr-2 text-yellow-400">💰</span>
-                    <span id="player-gold">0</span>
-                </div>
-            </div>
-            
-            <div id="boss-status-bar" class="w-full mb-4 hidden">
-                <h3 class="text-xl font-black text-red-500 text-center mb-1 animate-pulse">BOSS</h3>
-                <div class="h-4 bg-gray-700 rounded-full overflow-hidden border-2 border-red-500">
-                    <div id="boss-health-bar" class="h-full bg-red-600 transition-all duration-500 flex items-center justify-center" style="width: 100%;">
-                        <span id="boss-health" class="text-xs font-bold text-white mix-blend-difference z-10">0/0</span>
+        <div id="info-modal-overlay" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+            <div class="smooth-panel p-6 w-11/12 max-w-md">
+                <h2 id="modal-title" class="text-2xl font-black text-center mb-4 text-blue-400">Titel</h2>
+                <div id="modal-content" class="text-white space-y-3 max-h-96 overflow-y-auto pr-2">
                     </div>
-                </div>
+                <button onclick="closeModal()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-2 mt-6">Schließen</button>
             </div>
-
-            <h2 class="text-xl font-semibold mb-3 text-center text-gray-300" id="dealer-title">Dealer's Hand</h2>
-            <div id="dealer-hand" class="flex justify-center flex-wrap min-h-[120px] mb-4">
-                </div>
-
-            <div class="border-t border-gray-700 pt-4">
-                <h2 class="text-xl font-semibold mb-3 text-center text-gray-300">Your Hand (<span id="player-score" class="text-yellow-300">0</span>)</h2>
-                <div id="player-hand" class="flex justify-center flex-wrap min-h-[120px] mb-4">
-                    </div>
-            </div>
-
-            <div id="message-box" class="min-h-[40px] text-center text-lg font-extrabold mb-4 transition-opacity duration-300 p-2 rounded-lg">
-                Karten werden gegeben...
-            </div>
-
-            <div id="action-buttons" class="flex justify-center space-x-4 md:space-x-6 pb-2">
-                <button id="btn-hit" onclick="hit()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white py-3 px-8 text-lg disabled:opacity-50">
-                    Hit
-                </button>
-                <button id="btn-stand" onclick="stand()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white py-3 px-8 text-lg disabled:opacity-50">
-                    Stand
-                </button>
-            </div>
-            
         </div>
 
     </div>
-
     <script type="module">
         // --- GAME STATES UND MANAGER ---
         const GAME_STATE = {
@@ -491,6 +457,7 @@
             if (pointsGained > 0) {
                 localStorage.setItem('totalPoints', totalPoints.toString());
             }
+            localStorage.setItem('achievements', JSON.stringify(ACHIEVEMENTS));
         }
 
         // --- UI Controller ---
@@ -546,9 +513,9 @@
             },
 
             updateStatus() {
-                this.playerHealthEl.textContent = `${playerHealth}/${maxHealth}`;
-                this.playerGoldEl.textContent = playerGold;
-                this.currentFloorEl.textContent = currentFloor;
+                this.playerHealthEl.textContent = `${playerHealth}/${maxHealth} ❤️`;
+                this.playerGoldEl.textContent = `${playerGold} 💰`;
+                this.currentFloorEl.textContent = `Encounter ${currentFloor}`;
                 this.totalPointsEl.textContent = totalPoints;
                 this.shopGoldDisplayEl.textContent = playerGold;
                 this.cosmeticsPointsDisplayEl.textContent = totalPoints;
@@ -626,10 +593,11 @@
             
             // 3 zufällige, eindeutige Items auswählen
             currentShopItems = [];
-            while (currentShopItems.length < 3 && availableItems.length > 0) {
-                const randomIndex = Math.floor(Math.random() * availableItems.length);
-                currentShopItems.push(availableItems[randomIndex]);
-                availableItems.splice(randomIndex, 1); // Item entfernen, damit es nicht zweimal ausgewählt wird
+            const tempItems = [...availableItems]; // Kopie des Arrays
+            while (currentShopItems.length < 3 && tempItems.length > 0) {
+                const randomIndex = Math.floor(Math.random() * tempItems.length);
+                currentShopItems.push(tempItems[randomIndex]);
+                tempItems.splice(randomIndex, 1); 
             }
         }
         
@@ -851,7 +819,8 @@
             const dealerScore = getScore(dealerHand);
 
             if (playerScore === 21) {
-                setTimeout(() => ui.updateHands(true), 500); 
+                // Kürzere Timeout für flüssigeren Ablauf
+                setTimeout(() => ui.updateHands(true), 300); 
 
                 if (dealerScore === 21) {
                     endGame("Push! Unentschieden.", true, true);
@@ -859,7 +828,8 @@
                     endGame("BLACKJACK! Du gewinnst.", true);
                 }
             } else if (dealerScore === 21) {
-                setTimeout(() => ui.updateHands(true), 500); 
+                // Kürzere Timeout für flüssigeren Ablauf
+                setTimeout(() => ui.updateHands(true), 300); 
                 endGame("Dealer Blackjack!", false);
             }
         }
@@ -869,6 +839,7 @@
             if (!isGameActive) return;
 
             playerHand.push(drawCard());
+            // Kürzere Timeout für flüssigeren Ablauf
             setTimeout(() => {
                 ui.updateHands(false);
 
@@ -879,7 +850,7 @@
                 } else if (playerScore === 21) {
                     stand();
                 }
-            }, 300); // Animation muss schnell sein
+            }, 200); 
         }
 
         /** Spieler bleibt stehen, Dealer ist an der Reihe. */
@@ -898,7 +869,7 @@
                     clearInterval(dealerInterval);
                     evaluateResult();
                 }
-            }, 600); // Dealer-Geschwindigkeit angepasst
+            }, 400); // Dealer-Geschwindigkeit angepasst für flüssigere Animation
         }
 
         /** Auswertung des Ergebnisses nach Dealer-Zug. */
@@ -933,12 +904,11 @@
             }
             
             if (playerWon) {
-                // *** WICHTIGE KORREKTUR: ENCOUNTER HOCHZÄHLEN ***
+                // ENCOUNTER ZÄHLT NUR IM STANDARD-MODUS HOCH
                 if (gameMode === GAME_MODE.STANDARD) {
                     currentFloor++; 
                 }
-                // **********************************************
-
+                
                 // Gewinn: Gold und Boss-Schaden
                 if (gameMode === GAME_MODE.BOSS) {
                     const damage = getScore(playerHand);
@@ -996,28 +966,19 @@
             }
 
             // Wenn im Boss-Modus verloren, Bosskampf fortsetzen
-            if (gameMode === GAME_MODE.BOSS) {
+            if (gameMode === GAME_MODE.BOSS && bossHealth > 0) {
                 startEncounter(); 
                 return;
             }
             
-            // Standard: Nach 3 normalen Encountern kommt der Shop
+            // Standard: Nach 3 normalen Encountern kommt der Shop (currentFloor wurde bei Sieg bereits erhöht)
+            // Prüfen, ob der Floor nach dem letzten Spiel auf 2, 3, 5, 6, 8, 9... steht (d.h. nach 3 Encountern)
             if (currentFloor > 1 && (currentFloor-1) % 3 === 0 && currentFloor % 10 !== 0) {
-                // currentFloor-1, weil der Floor bei Gewinn schon hochgezählt wurde
                 renderShop();
                 ui.changeState(GAME_STATE.SHOP);
             } else {
-                // Bei Gewinn im Standard-Modus wurde currentFloor bereits erhöht
-                // Beim Verlieren im Standard-Modus muss currentFloor nicht erhöht werden
-                if (currentFloor % 10 === 0) {
-                   // Wenn der nächste Encounter ein Boss ist
-                   startEncounter();
-                } else if (currentState === GAME_STATE.PLAYING) {
-                   // Weiter zum nächsten normalen Encounter
-                   startEncounter();
-                } else {
-                    // Fallback, wenn Logik im Shop-Exit schon lief
-                }
+                // Weiter zum nächsten Encounter (egal ob Sieg oder Niederlage)
+                startEncounter();
             }
         }
         
@@ -1025,6 +986,7 @@
         
         /** Startet die gesamte Anwendung. */
         function initialize() {
+            // Lade Achievments und andere gespeicherte Werte
             const storedAchievements = JSON.parse(localStorage.getItem('achievements') || '[]');
             storedAchievements.forEach(storedA => {
                 const index = ACHIEVEMENTS.findIndex(a => a.id === storedA.id);
@@ -1033,18 +995,19 @@
                 }
             });
             
-            playerHealth = maxHealth;
+            // WICHTIG: Setze die Spieler-HP explizit auf 100, um den "Sofort Game Over" Fehler zu beheben
+            playerHealth = 100;
+            maxHealth = 100;
 
             ui.updateStatus();
             ui.changeState(GAME_STATE.MENU); 
             
-            // FÜR DIE ERSTEN TESTS: Verstecke das Game-Over Overlay sofort
+            // Verstecke das Game-Over Overlay sofort
             document.getElementById('game-over-overlay').classList.add('hidden');
         }
 
         // Starte die App, wenn das Dokument vollständig geladen ist
         document.addEventListener('DOMContentLoaded', initialize);
     </script>
-
 </body>
 </html>

@@ -1,0 +1,6 @@
+{
+  "appId": "com.hoechtl.rogue21",
+  "appName": "Rogue21",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

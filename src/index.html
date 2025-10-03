@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Rogue 21 - Boss Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Lade Inter-Schriftart und definiere globale Stile */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap');
+        
+        /* 1. POKERTISCH-DESIGN & GLOBALE STILE */
+        html, body {
+            font-family: 'Inter', sans-serif;
+            /* Grüner Filz-Effekt für Pokertisch */
+            background-color: #0b0f1a;
+            background-image: radial-gradient(circle at center, #16a34a 0%, #15803d 50%, #166534 100%);
+            color: #e5e7eb;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+        }
+        
+        /* App Container behält den dunklen Rahmen für Menüs */
+        #app-container {
+            width: 100%; 
+            min-height: 100vh;
+            padding-top: env(safe-area-inset-top, 1rem);
+            padding-bottom: env(safe-area-inset-bottom, 1rem);
+            padding-left: env(safe-area-inset-left, 0.5rem);
+            padding-right: env(safe-area-inset-right, 0.5rem);
+            
+            max-width: 600px; 
+            margin-left: auto;
+            margin-right: auto;
+            overflow-y: auto; 
+        }
+
+        /* Spielbereich wird vom Filz dominiert */
+        #gameplay-state {
+            background-color: rgba(0, 0, 0, 0.3); /* Leicht transparent auf Filz */
+            border-color: #374151; 
+        }
+        
+        .smooth-panel {
+            background-color: #1a202c; 
+            border: 1px solid #374151;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
+            border-radius: 1rem; 
+        }
+        
+        .smooth-btn {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            font-weight: 700;
+            border-radius: 0.75rem;
+        }
+        .smooth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.3);
+        }
+        .smooth-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 2. KARTEN-STYLES & ANIMATIONEN (FLÜSSIGER) */
+        
+        .card {
+            background-color: #ffffff;
+            color: #1f2937;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            position: relative; 
+            font-size: 1.5rem;
+            width: 70px;
+            height: 100px;
+            margin: 4px; /* Etwas weniger Margin für dichteres Layout */
+            transform: translateY(-20px) scale(0.9);
+            opacity: 0;
+            /* Kürzere, flüssigere Animation */
+            animation: deal-card 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; 
+            user-select: none;
+            cursor: default;
+        }
+        @keyframes deal-card {
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+        .suit-red { color: #ef4444; } 
+        .suit-black { color: #1f2937; } 
+        
+        /* Kartenrücken-Stile */
+        .card-back {
+            color: #e5e7eb;
+            font-size: 1.25rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+        }
+        .skin-default { background-color: #6d28d9; }
+        .skin-gold { 
+            background: linear-gradient(135deg, #fcd34d 0%, #d97706 100%); 
+            color: #333;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        .skin-cyber { 
+            background: #111827;
+            background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%), linear-gradient(90deg, transparent 24%, rgba(0, 255, 255, 0.3) 25%, rgba(0, 255, 255, 0.3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 255, 0.3) 75%, rgba(0, 255, 255, 0.3) 76%, transparent 77%);
+            background-size: 10px 10px;
+            color: #0ff;
+        }
+        .skin-crimson { 
+            background: radial-gradient(circle at center, #b91c1c 0%, #7f1d1d 100%); 
+            color: #fee2e2;
+        }
+
+        /* Benachrichtigungsstil */
+        #notification-box {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            z-index: 1000;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-weight: bold;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.5s ease-out;
+        }
+        #notification-box.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+
+    <div id="notification-box" class="hidden"></div>
+
+    <div id="game-over-overlay" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden transition-opacity duration-500">
+        <div class="smooth-panel p-8 w-11/12 max-w-md text-center bg-red-900/40 border-red-700/60">
+            <h1 class="text-4xl font-extrabold text-red-400 mb-4 animate-pulse">GAME OVER</h1>
+            <p class="text-lg text-gray-300 mb-6">Dein Run endete auf Encounter <span id="final-floor">0</span>.</p>
+            <p class="text-xl font-bold text-yellow-300 mb-8">Gold gesammelt: <span id="final-gold">0</span> 💰</p>
+            <button onclick="resetGame()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white w-full py-3">
+                Neuen Run starten
+            </button>
+        </div>
+    </div>
+
+    <div id="info-modal-overlay" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="smooth-panel p-6 md:p-10 max-w-lg w-11/12 text-center bg-gray-800 border-blue-600/60 border-2">
+            <h2 id="modal-title" class="text-3xl font-bold text-blue-400 mb-6 border-b border-gray-600 pb-2"></h2>
+            <div id="modal-content" class="text-left text-gray-300 space-y-4 text-base max-h-96 overflow-y-auto pr-2">
+                </div>
+            <button onclick="closeModal()" class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 mt-8">
+                Zurück zum Menü
+            </button>
+        </div>
+    </div>
+
+    <div id="app-container" class="flex flex-col items-center">
+
+        <div id="main-menu" class="smooth-panel flex flex-col items-center justify-center w-full text-center p-8 md:p-12 min-h-[90vh] bg-black/70">
+            <h1 class="text-6xl font-black text-purple-400 mb-12 tracking-wide">ROGUE 21</h1>
+            
+            <div class="space-y-4 w-full max-w-xs">
+                <button onclick="startNewRun()" class="smooth-btn bg-green-500 hover:bg-green-600 text-white w-full py-4 text-xl">
+                    Neuer Run
+                </button>
+                <button onclick="showHighscores()" class="smooth-btn bg-blue-500 hover:bg-blue-600 text-white w-full py-3 text-lg">
+                    Highscores
+                </button>
+                <button onclick="showAchievements()" class="smooth-btn bg-yellow-500 hover:bg-yellow-600 text-white w-full py-3 text-lg">
+                    Achievments
+                </button>
+                <button onclick="showCosmeticsShop()" class="smooth-btn bg-purple-500 hover:bg-purple-600 text-white w-full py-3 text-lg">
+                    Cosmetics Shop
+                </button>
+            </div>
+            <p class="text-sm text-gray-400 mt-8">Gesamtpunkte: <span id="total-points" class="font-bold text-white">0</span> ⭐</p>
+        </div>
+
+        <div id="shop-container" class="smooth-panel p-6 md:p-8 w-full hidden bg-black/70">
+            <h2 class="text-3xl font-bold text-yellow-400 text-center mb-6">Der Händler</h2>
+            <p class="text-center text-lg mb-6 text-gray-300">Dein Gold: <span id="shop-gold-display" class="font-bold text-yellow-300">0</span> 💰</p>
+            <div id="shop-items" class="space-y-4">
+                </div>
+            
+            <div class="flex flex-col space-y-3 mt-8">
+                <button onclick="exitShop()" class="smooth-btn bg-purple-600 hover:bg-purple-700 text-white w-full py-3 text-lg">
+                    Weiter zum nächsten Encounter
+                </button>
+                <button onclick="backToMenuFromShop()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-2 text-base">
+                    Run aufgeben & zum Menü
+                </button>
+            </div>
+        </div>
+        
+        <div id="cosmetics-shop" class="smooth-panel p-6 md:p-8 w-full hidden bg-black/70">
+            <h2 class="text-3xl font-bold text-purple-400 text-center mb-6">Cosmetics Shop</h2>
+            <p class="text-center text-lg mb-6 text-gray-300">Deine Punkte: <span id="cosmetics-points-display" class="font-bold text-yellow-300">0</span> ⭐</p>
+            
+            <h3 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Kartenrücken</h3>
+            <div id="card-back-shop-items" class="grid grid-cols-2 gap-4">
+                </div>
+            
+            <button onclick="ui.changeState(GAME_STATE.MENU)" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-3 text-lg mt-8">
+                Zurück zum Hauptmenü
+            </button>
+        </div>
+
+        <div id="gameplay-state" class="smooth-panel p-4 md:p-6 w-full hidden">
+            
+            <div class="flex justify-between items-center mb-4 p-3 bg-gray-800/50 rounded-lg border border-purple-500/40 shadow-inner">
+                <div class="flex items-center text-lg md:text-xl font-bold">
+                    <span role="img" aria-label="Health" class="mr-2 text-red-400">❤️</span>
+                    <span id="player-health">100/100</span>
+                </div>
+                <div class="text-center font-bold text-base md:text-lg text-white">
+                    Enc: <span id="current-floor" class="text-green-400">1</span>
+                    <span id="reroll-charges-display" class="text-xs text-blue-300 block">Würfel: 0</span>
+                </div>
+                <div class="flex items-center text-lg md:text-xl font-bold">
+                    <span role="img" aria-label="Gold" class="mr-2 text-yellow-400">💰</span>
+                    <span id="player-gold">0</span>
+                </div>
+            </div>
+            
+            <div id="boss-status-bar" class="w-full mb-4 hidden">
+                <h3 class="text-xl font-black text-red-500 text-center mb-1 animate-pulse">BOSS</h3>
+                <div class="h-4 bg-gray-700 rounded-full overflow-hidden border-2 border-red-500">
+                    <div id="boss-health-bar" class="h-full bg-red-600 transition-all duration-500 flex items-center justify-center" style="width: 100%;">
+                        <span id="boss-health" class="text-xs font-bold text-white mix-blend-difference z-10">0/0</span>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-xl font-semibold mb-3 text-center text-gray-300" id="dealer-title">Dealer's Hand</h2>
+            <div id="dealer-hand" class="flex justify-center flex-wrap min-h-[120px] mb-4">
+                </div>
+
+            <div class="border-t border-gray-700 pt-4">
+                <h2 class="text-xl font-semibold mb-3 text-center text-gray-300">Your Hand (<span id="player-score" class="text-yellow-300">0</span>)</h2>
+                <div id="player-hand" class="flex justify-center flex-wrap min-h-[120px] mb-4">
+                    </div>
+            </div>
+
+            <div id="message-box" class="min-h-[40px] text-center text-lg font-extrabold mb-4 transition-opacity duration-300 p-2 rounded-lg">
+                Karten werden gegeben...
+            </div>
+
+            <div id="action-buttons" class="flex justify-center space-x-4 md:space-x-6 pb-2">
+                <button id="btn-hit" onclick="hit()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white py-3 px-8 text-lg disabled:opacity-50">
+                    Hit
+                </button>
+                <button id="btn-stand" onclick="stand()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white py-3 px-8 text-lg disabled:opacity-50">
+                    Stand
+                </button>
+            </div>
+            
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- GAME STATES UND MANAGER ---
+        const GAME_STATE = {
+            MENU: 'MENU',
+            PLAYING: 'PLAYING',
+            SHOP: 'SHOP',
+            COSMETICS: 'COSMETICS',
+            GAMEOVER: 'GAMEOVER'
+        };
+        
+        // Spiel-Modi (Standard Blackjack oder Bosskampf)
+        const GAME_MODE = {
+            STANDARD: 'STANDARD',
+            BOSS: 'BOSS'
+        };
+
+        let currentState = GAME_STATE.MENU;
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let isGameActive = false;
+        
+        // Roguelike Status
+        let playerHealth = 100;
+        let maxHealth = 100;
+        let playerGold = 0;
+        let currentFloor = 1;
+        
+        // Modifikatoren
+        let goldMultiplier = 1;
+        let rerollCharges = 0; 
+        
+        // BOSS Status
+        let gameMode = GAME_MODE.STANDARD;
+        let bossHealth = 0;
+        let bossMaxHealth = 0;
+
+        // Cosmetics/Progression
+        let totalPoints = parseInt(localStorage.getItem('totalPoints') || '0', 10);
+        let highscores = JSON.parse(localStorage.getItem('blackjackHighscores') || '[]');
+        let unlockedSkins = JSON.parse(localStorage.getItem('unlockedSkins') || '["default"]');
+        let equippedSkin = localStorage.getItem('equippedSkin') || 'default';
+        
+        // Konstanten
+        const SUITS = ['♥', '♦', '♣', '♠'];
+        const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+        const ACHIEVEMENTS = [
+            { id: 'first_win', name: 'Erster Sieg', condition: () => currentFloor >= 2, points: 10, unlocked: false },
+            { id: 'floor_5', name: 'Wegbereiter', condition: () => currentFloor >= 5, points: 50, unlocked: false },
+            { id: '100_gold', name: 'Reichtum', condition: () => playerGold >= 100, points: 20, unlocked: false },
+            { id: 'first_boss_kill', name: 'Erster Bosskill', condition: () => currentFloor > 10, points: 100, unlocked: false }
+        ];
+        
+        const SHOP_ITEMS_POOL = [
+            { id: 'max_hp_boost', name: '+10 Max Health', cost: 30, effect: () => { maxHealth += 10; playerHealth += 10; ui.updateStatus(); showNotification("Max Health erhöht.", 'bg-yellow-500'); } }, 
+            { id: 'heal_15', name: 'Heilung (15 HP)', cost: 20, effect: () => { playerHealth = Math.min(maxHealth, playerHealth + 15); ui.updateStatus(); showNotification("Du wurdest geheilt.", 'bg-green-500'); } },
+            { id: 'extra_life', name: 'Robuste Haut (+20 HP)', cost: 80, effect: () => { maxHealth += 20; playerHealth += 20; ui.updateStatus(); showNotification("Du fühlst dich robuster.", 'bg-yellow-500'); } }, 
+            { id: 'add_reroll_charge', name: 'Würfel-Charge (+1)', cost: 25, effect: () => { rerollCharges += 1; ui.showMessage(`Du hast 1 Charge zum Würfeln erhalten. Aktuell: ${rerollCharges}`, false); showNotification(`+1 Würfel-Charge.`, 'bg-blue-500'); } }, 
+            { id: 'gold_double', name: 'Gold-Multiplikator (x2)', cost: 150, effect: () => { goldMultiplier = 2; ui.showMessage('Gold wird ab jetzt verdoppelt! (Einmalig)', false); showNotification('Gold x2 freigeschaltet!', 'bg-yellow-500'); }, available: () => goldMultiplier === 1 }, 
+            { id: 'damage_reduction', name: 'Schadensresistenz', cost: 70, effect: () => { playerHealth += 5; ui.updateStatus(); showNotification("Schadensresistenz erworben.", 'bg-gray-500'); } }
+        ];
+        let currentShopItems = []; 
+
+        const CARD_BACK_SKINS = [
+            { id: 'default', name: 'Standard (Lila)', cost: 0, cssClass: 'skin-default' },
+            { id: 'gold', name: 'Gold Rush', cost: 100, cssClass: 'skin-gold' },
+            { id: 'cyber', name: 'Cyber Grid', cost: 250, cssClass: 'skin-cyber' },
+            { id: 'crimson', name: 'Crimson Edge', cost: 500, cssClass: 'skin-crimson' }
+        ];
+
+        // --- HILFSFUNKTIONEN ---
+
+        /** Erstellt und mischt ein neues Deck. */
+        function createDeck() {
+            const newDeck = [];
+            for (const suit of SUITS) {
+                for (const value of VALUES) {
+                    newDeck.push({ suit, value });
+                }
+            }
+            // Fisher-Yates Shuffle
+            for (let i = newDeck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+            }
+            return newDeck;
+        }
+
+        /** Berechnet den bestmöglichen Blackjack-Score für eine Hand. */
+        function getScore(hand) {
+            let score = 0;
+            let numAces = 0;
+            for (const card of hand) {
+                if (card.value === 'A') {
+                    numAces++;
+                    score += 11;
+                } else if (['K', 'Q', 'J'].includes(card.value)) {
+                    score += 10;
+                } else {
+                    score += parseInt(card.value);
+                }
+            }
+            while (score > 21 && numAces > 0) {
+                score -= 10;
+                numAces--;
+            }
+            return score;
+        }
+
+        /** Zeichnet eine Karte vom Deck. */
+        function drawCard() {
+            if (deck.length === 0) deck = createDeck();
+            return deck.pop();
+        }
+
+        /** Erstellt das HTML-Element für eine Karte. */
+        function createCardElement(card, isHidden = false, index = -1) {
+            const suitClass = (card.suit === '♥' || card.suit === '♦') ? 'suit-red' : 'suit-black';
+            
+            const cardBackSkin = CARD_BACK_SKINS.find(s => s.id === equippedSkin) || CARD_BACK_SKINS[0];
+            
+            // Inhalt der Karte: Vorderseite oder Rückseite
+            const content = isHidden 
+                ? `<div class="font-black">R21</div>` 
+                : `<div class="text-3xl">${card.suit}</div><div class="text-xl">${card.value}</div>`;
+                
+            const hiddenClass = isHidden 
+                ? `card-back ${cardBackSkin.cssClass}` 
+                : 'bg-white';
+            
+            const handSize = playerHand.length + dealerHand.length;
+            // Kürzere Animation, Delay für flüssigeren Ablauf
+            const delay = 50 * handSize; 
+            
+            // Reroll Button (wird nur angezeigt, wenn Charges verfügbar sind und es die Spielerkarte ist)
+            const rerollButton = (rerollCharges > 0 && !isHidden && index !== -1) ? 
+                `<button onclick="rerollCard(${index})" class="text-xs absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-br-md rounded-tl-md font-bold">R</button>` : '';
+
+            return `
+                <div class="card ${suitClass} ${hiddenClass}" data-card-index="${index}" style="animation-delay: ${delay}ms;">
+                    ${content}
+                    ${rerollButton}
+                </div>
+            `;
+        }
+        
+        /** Benachrichtigung anzeigen */
+        let notificationTimeout;
+        function showNotification(message, bgColorClass = 'bg-blue-600', duration = 3000) {
+            const el = document.getElementById('notification-box');
+            el.innerHTML = message;
+            el.className = bgColorClass + ' show'; // Setzt Klasse und zeigt an
+            el.classList.remove('hidden');
+
+            clearTimeout(notificationTimeout);
+            notificationTimeout = setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.classList.add('hidden'), 500); // Verzögerung für CSS-Übergang
+            }, duration);
+        }
+
+        /** Spieler kann eine Karte neu ziehen (kostet eine Charge). */
+        window.rerollCard = function(index) {
+            if (!isGameActive || rerollCharges <= 0 || index < 0 || index >= playerHand.length) return;
+            
+            rerollCharges -= 1; // Charge verbrauchen
+            
+            // Karte ersetzen
+            playerHand.splice(index, 1, drawCard());
+            
+            ui.updateHands(false);
+            ui.showMessage(`Karte neu gewürfelt! (${rerollCharges} Charges übrig)`, false);
+            ui.updateStatus();
+            
+            // Nach dem Würfeln sofort auf Bust/21 prüfen
+            const playerScore = getScore(playerHand);
+            if (playerScore > 21) {
+                endGame("Bust nach dem Würfeln!", false);
+            } else if (playerScore === 21) {
+                stand();
+            }
+        }
+        
+        /** Speichert Highscore und Punkte */
+        function saveHighscore() {
+            const newScore = {
+                floor: currentFloor,
+                gold: playerGold,
+                date: new Date().toISOString().slice(0, 10)
+            };
+            highscores.push(newScore);
+            highscores.sort((a, b) => b.floor - a.floor || b.gold - a.gold);
+            
+            // Max. 10 Highscores behalten
+            highscores = highscores.slice(0, 10); 
+            
+            localStorage.setItem('blackjackHighscores', JSON.stringify(highscores));
+            localStorage.setItem('totalPoints', totalPoints.toString());
+            
+            // Prüfe Achievments nur am Ende eines Runs
+            checkAchievements();
+        }
+
+        /** Achievement-Prüfung */
+        function checkAchievements() {
+            let pointsGained = 0;
+            ACHIEVEMENTS.forEach(a => {
+                if (!a.unlocked && a.condition()) {
+                    a.unlocked = true;
+                    totalPoints += a.points;
+                    pointsGained += a.points;
+                    showNotification(`ACHIEVEMENT: ${a.name} freigeschaltet! (+${a.points} ⭐)`, 'bg-yellow-600', 5000);
+                }
+            });
+            if (pointsGained > 0) {
+                localStorage.setItem('totalPoints', totalPoints.toString());
+            }
+        }
+
+        // --- UI Controller ---
+
+        const ui = {
+            // Element IDs
+            dealerHandEl: document.getElementById('dealer-hand'),
+            playerHandEl: document.getElementById('player-hand'),
+            playerScoreEl: document.getElementById('player-score'),
+            playerHealthEl: document.getElementById('player-health'),
+            playerGoldEl: document.getElementById('player-gold'),
+            currentFloorEl: document.getElementById('current-floor'),
+            rerollChargesEl: document.getElementById('reroll-charges-display'),
+            messageBoxEl: document.getElementById('message-box'),
+            btnHit: document.getElementById('btn-hit'),
+            btnStand: document.getElementById('btn-stand'),
+            dealerTitleEl: document.getElementById('dealer-title'),
+            gameOverOverlay: document.getElementById('game-over-overlay'),
+            bossStatusBarEl: document.getElementById('boss-status-bar'),
+            bossHealthEl: document.getElementById('boss-health'),
+            bossHealthBarEl: document.getElementById('boss-health-bar'),
+
+            mainMenuEl: document.getElementById('main-menu'),
+            shopContainerEl: document.getElementById('shop-container'),
+            gameplayStateEl: document.getElementById('gameplay-state'),
+            cosmeticsShopEl: document.getElementById('cosmetics-shop'),
+            shopGoldDisplayEl: document.getElementById('shop-gold-display'),
+            cosmeticsPointsDisplayEl: document.getElementById('cosmetics-points-display'),
+            shopItemsEl: document.getElementById('shop-items'),
+            infoModalOverlay: document.getElementById('info-modal-overlay'),
+            modalTitleEl: document.getElementById('modal-title'),
+            modalContentEl: document.getElementById('modal-content'),
+            totalPointsEl: document.getElementById('total-points'),
+
+
+            // Methoden
+            updateHands(revealDealer = false) {
+                this.dealerHandEl.innerHTML = dealerHand.map((card, index) =>
+                    createCardElement(card, !revealDealer && index === 0)
+                ).join('');
+
+                // Übergibt den Index, damit der Reroll-Button weiß, welche Karte gewechselt werden soll
+                this.playerHandEl.innerHTML = playerHand.map((card, index) => createCardElement(card, false, index)).join('');
+
+                const score = getScore(playerHand);
+                this.playerScoreEl.textContent = score;
+
+                if (revealDealer) {
+                    this.dealerTitleEl.textContent = `Dealer's Hand (${getScore(dealerHand)})`;
+                } else {
+                    this.dealerTitleEl.textContent = "Dealer's Hand";
+                }
+            },
+
+            updateStatus() {
+                this.playerHealthEl.textContent = `${playerHealth}/${maxHealth}`;
+                this.playerGoldEl.textContent = playerGold;
+                this.currentFloorEl.textContent = currentFloor;
+                this.totalPointsEl.textContent = totalPoints;
+                this.shopGoldDisplayEl.textContent = playerGold;
+                this.cosmeticsPointsDisplayEl.textContent = totalPoints;
+                this.rerollChargesEl.textContent = `Würfel: ${rerollCharges}`;
+                
+                // NEU: Boss Status
+                if (gameMode === GAME_MODE.BOSS) {
+                    this.bossStatusBarEl.classList.remove('hidden');
+                    this.bossHealthEl.textContent = `${bossHealth}/${bossMaxHealth}`;
+                    const percent = (bossHealth / bossMaxHealth) * 100;
+                    this.bossHealthBarEl.style.width = `${percent}%`;
+                } else {
+                    this.bossStatusBarEl.classList.add('hidden');
+                }
+            },
+
+            showMessage(message, isEndState = false) {
+                this.messageBoxEl.innerHTML = message;
+                this.messageBoxEl.classList.remove('text-green-400', 'text-red-400', 'text-yellow-400');
+                if (isEndState) {
+                    this.messageBoxEl.classList.add(message.includes('Gewonnen') || message.includes('BOSS besiegt') ? 'text-green-400' : 'text-red-400');
+                    this.messageBoxEl.classList.add('bg-black/20');
+                } else {
+                    this.messageBoxEl.classList.add('text-yellow-400');
+                    this.messageBoxEl.classList.remove('bg-black/20');
+                }
+            },
+
+            setControls(active) {
+                this.btnHit.disabled = !active;
+                this.btnStand.disabled = !active;
+            },
+            
+            changeState(newState) {
+                this.mainMenuEl.classList.add('hidden');
+                this.gameplayStateEl.classList.add('hidden');
+                this.shopContainerEl.classList.add('hidden');
+                this.cosmeticsShopEl.classList.add('hidden');
+                this.gameOverOverlay.classList.add('hidden');
+                this.infoModalOverlay.classList.add('hidden');
+                
+                switch (newState) {
+                    case GAME_STATE.MENU:
+                        this.mainMenuEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.PLAYING:
+                        this.gameplayStateEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.SHOP:
+                        this.shopContainerEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.COSMETICS:
+                        this.cosmeticsShopEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.GAMEOVER:
+                        this.showGameOver();
+                        break;
+                }
+                currentState = newState;
+                this.updateStatus();
+            },
+
+            showGameOver() {
+                document.getElementById('final-floor').textContent = currentFloor;
+                document.getElementById('final-gold').textContent = playerGold;
+                this.gameOverOverlay.classList.remove('hidden');
+            },
+        };
+
+        // --- SHOP FUNKTIONEN ---
+
+        function generateShopItems() {
+            // Filtern der verfügbaren Items (z.B. Gold Multiplier nur einmal)
+            const availableItems = SHOP_ITEMS_POOL.filter(item => !item.available || item.available());
+            
+            // 3 zufällige, eindeutige Items auswählen
+            currentShopItems = [];
+            while (currentShopItems.length < 3 && availableItems.length > 0) {
+                const randomIndex = Math.floor(Math.random() * availableItems.length);
+                currentShopItems.push(availableItems[randomIndex]);
+                availableItems.splice(randomIndex, 1); // Item entfernen, damit es nicht zweimal ausgewählt wird
+            }
+        }
+        
+        function renderShop() {
+            generateShopItems();
+            let html = '';
+            currentShopItems.forEach((item, index) => {
+                const canAfford = playerGold >= item.cost;
+                html += `
+                    <div class="flex justify-between items-center smooth-panel p-3 ${canAfford ? 'border-green-500/50' : 'border-red-500/50'}">
+                        <div>
+                            <p class="text-lg font-bold text-white">${item.name}</p>
+                            <p class="text-sm text-gray-400">${item.id === 'damage_reduction' ? 'Reduziert den erlittenen Schaden.' : 'Einmaliger Effekt.'}</p>
+                        </div>
+                        <button onclick="buyShopItem(${index})" 
+                                class="smooth-btn py-2 px-4 text-sm ${canAfford ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 cursor-not-allowed'}"
+                                ${!canAfford ? 'disabled' : ''}>
+                            ${item.cost} 💰
+                        </button>
+                    </div>
+                `;
+            });
+            ui.shopItemsEl.innerHTML = html;
+            ui.updateStatus(); // Aktualisiert die Goldanzeige im Shop
+        }
+
+        window.buyShopItem = function(index) {
+            const item = currentShopItems[index];
+            if (!item || playerGold < item.cost) {
+                showNotification("Nicht genug Gold!", 'bg-red-500');
+                return;
+            }
+            
+            playerGold -= item.cost;
+            item.effect();
+            
+            // Entferne das gekaufte Item aus der aktuellen Shop-Liste und rendere neu
+            currentShopItems.splice(index, 1);
+            renderShop();
+        }
+
+        window.exitShop = function() {
+            currentFloor++; // Nächster Encounter nach dem Shop
+            ui.changeState(GAME_STATE.PLAYING);
+            startEncounter();
+        }
+
+        // --- MODAL & COSMETICS FUNKTIONEN ---
+
+        window.showHighscores = function() {
+            ui.modalTitleEl.textContent = 'Highscores (Encounter / Gold)';
+            let content = '<p class="text-center text-gray-400">Noch keine Highscores gespeichert.</p>';
+            if (highscores.length > 0) {
+                content = '<ul class="space-y-2">';
+                highscores.forEach((score, index) => {
+                    content += `<li class="flex justify-between items-center p-2 rounded ${index === 0 ? 'bg-yellow-800/50 border-yellow-500 border' : 'bg-gray-700/50'}">
+                        <span class="font-bold">${index + 1}.</span>
+                        <span>Encounter: <span class="text-green-300">${score.floor}</span></span>
+                        <span>Gold: <span class="text-yellow-300">${score.gold} 💰</span></span>
+                        <span class="text-xs text-gray-400">${score.date}</span>
+                    </li>`;
+                });
+                content += '</ul>';
+            }
+            ui.modalContentEl.innerHTML = content;
+            ui.infoModalOverlay.classList.remove('hidden');
+        }
+
+        window.showAchievements = function() {
+            ui.modalTitleEl.textContent = 'Achievements';
+            let content = '<ul class="space-y-2">';
+            ACHIEVEMENTS.forEach(a => {
+                const isUnlocked = a.unlocked;
+                content += `<li class="flex justify-between items-center p-3 rounded ${isUnlocked ? 'bg-green-800/50 border-green-500' : 'bg-gray-700/50 border-gray-600'} border">
+                    <div>
+                        <p class="text-lg font-bold ${isUnlocked ? 'text-green-300' : 'text-gray-300'}">${a.name}</p>
+                        <p class="text-xs text-gray-400">${isUnlocked ? 'Freigeschaltet' : 'Bedingung nicht erfüllt'}</p>
+                    </div>
+                    <span class="font-black text-xl">${a.points} ⭐</span>
+                </li>`;
+            });
+            content += '</ul>';
+            ui.modalContentEl.innerHTML = content;
+            ui.infoModalOverlay.classList.remove('hidden');
+        }
+
+        window.closeModal = function() {
+            ui.infoModalOverlay.classList.add('hidden');
+        }
+
+        window.showCosmeticsShop = function() {
+            ui.changeState(GAME_STATE.COSMETICS);
+            renderCosmeticsShop();
+        }
+
+        function renderCosmeticsShop() {
+            const container = document.getElementById('card-back-shop-items');
+            let html = '';
+            
+            CARD_BACK_SKINS.forEach(skin => {
+                const isUnlocked = unlockedSkins.includes(skin.id);
+                const isEquipped = equippedSkin === skin.id;
+                const canBuy = totalPoints >= skin.cost;
+                
+                html += `
+                    <div class="smooth-panel p-4 text-center flex flex-col items-center justify-between border-2 ${isEquipped ? 'border-purple-400' : isUnlocked ? 'border-green-400' : 'border-gray-700'}">
+                        <p class="font-bold text-lg mb-2 ${isEquipped ? 'text-purple-300' : 'text-white'}">${skin.name}</p>
+                        <div class="card card-back w-20 h-28 my-2 ${skin.cssClass} !transform-none !opacity-100">R21</div>
+                        
+                        ${isEquipped ? 
+                            `<span class="text-lg font-black text-purple-400 mt-2">AUSGERÜSTET</span>` 
+                            : isUnlocked ? 
+                                `<button onclick="equipSkin('${skin.id}')" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-full py-2 text-sm mt-2">Ausrüsten</button>` 
+                                : 
+                                `<button onclick="buySkin('${skin.id}', ${skin.cost})" 
+                                        class="smooth-btn w-full py-2 text-sm mt-2 ${canBuy ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-500 cursor-not-allowed'}" 
+                                        ${!canBuy ? 'disabled' : ''}>
+                                    Kaufen (${skin.cost} ⭐)
+                                </button>`
+                        }
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        window.buySkin = function(skinId, cost) {
+            if (totalPoints < cost) {
+                showNotification("Nicht genug Punkte!", 'bg-red-500');
+                return;
+            }
+            totalPoints -= cost;
+            unlockedSkins.push(skinId);
+            localStorage.setItem('totalPoints', totalPoints.toString());
+            localStorage.setItem('unlockedSkins', JSON.stringify(unlockedSkins));
+            showNotification(`${CARD_BACK_SKINS.find(s => s.id === skinId).name} freigeschaltet!`, 'bg-green-600');
+            renderCosmeticsShop();
+        }
+
+        window.equipSkin = function(skinId) {
+            equippedSkin = skinId;
+            localStorage.setItem('equippedSkin', skinId);
+            showNotification(`Neuer Kartenrücken: ${CARD_BACK_SKINS.find(s => s.id === skinId).name}!`, 'bg-purple-600');
+            renderCosmeticsShop();
+        }
+
+
+        // --- SPIEL-LOOP LOGIK ---
+        
+        /** Initialisiert die Daten für einen neuen Run. */
+        window.startNewRun = function() {
+            // Wichtig: Setze die Spieler-HP auf den Max-Wert ZUR SICHERHEIT
+            playerHealth = 100;
+            maxHealth = 100;
+            playerGold = 0;
+            currentFloor = 1; // Startet auf Encounter 1
+            goldMultiplier = 1;
+            rerollCharges = 0; 
+            bossHealth = 0; 
+            gameMode = GAME_MODE.STANDARD;
+            
+            ui.changeState(GAME_STATE.PLAYING);
+            startEncounter();
+        }
+
+        /** Setzt den Spielstand zurück und startet einen neuen Run. */
+        window.resetGame = function() {
+            ui.changeState(GAME_STATE.MENU);
+        }
+        
+        window.backToMenuFromShop = function() {
+            saveHighscore(); 
+            showNotification(`Run auf Encounter ${currentFloor} aufgegeben.`, 'bg-red-500');
+            ui.changeState(GAME_STATE.MENU);
+        }
+
+        /** Startet eine neue Blackjack-Runde für den aktuellen Floor. */
+        window.startEncounter = function() {
+            if (playerHealth <= 0) return ui.changeState(GAME_STATE.GAMEOVER);
+
+            // NEU: Boss Check (alle 10 Encounter)
+            if (currentFloor > 0 && currentFloor % 10 === 0) {
+                if (gameMode !== GAME_MODE.BOSS || bossHealth <= 0) {
+                    gameMode = GAME_MODE.BOSS;
+                    bossMaxHealth = 50 + (currentFloor / 10) * 15;
+                    bossHealth = bossMaxHealth;
+                    showNotification(`BOSS ALARM! Encounter ${currentFloor} - Das ist der Endgegner!`, 'bg-red-700', 5000);
+                } else {
+                    showNotification(`Runde ${currentFloor} - Kampf fortgesetzt!`, 'bg-red-500', 1000);
+                    gameMode = GAME_MODE.BOSS; 
+                }
+            } else {
+                gameMode = GAME_MODE.STANDARD;
+                bossHealth = 0; 
+            }
+
+            deck = createDeck();
+            playerHand = [];
+            dealerHand = [];
+            isGameActive = true;
+
+            // Startkarten 
+            for (let i = 0; i < 2; i++) {
+                playerHand.push(drawCard());
+            }
+            dealerHand.push(drawCard(), drawCard());
+
+            ui.updateHands(false);
+            ui.updateStatus();
+            ui.setControls(true);
+            ui.showMessage(`Encounter ${currentFloor}: Mach deinen Zug! ${gameMode === GAME_MODE.BOSS ? '— BOSS FIGHT!' : ''}`);
+            
+            checkBlackjack();
+        }
+
+        /** Überprüft auf Blackjack zu Beginn */
+        function checkBlackjack() {
+            const playerScore = getScore(playerHand);
+            const dealerScore = getScore(dealerHand);
+
+            if (playerScore === 21) {
+                setTimeout(() => ui.updateHands(true), 500); 
+
+                if (dealerScore === 21) {
+                    endGame("Push! Unentschieden.", true, true);
+                } else {
+                    endGame("BLACKJACK! Du gewinnst.", true);
+                }
+            } else if (dealerScore === 21) {
+                setTimeout(() => ui.updateHands(true), 500); 
+                endGame("Dealer Blackjack!", false);
+            }
+        }
+
+        /** Spieler zieht eine Karte. */
+        window.hit = function() {
+            if (!isGameActive) return;
+
+            playerHand.push(drawCard());
+            setTimeout(() => {
+                ui.updateHands(false);
+
+                const playerScore = getScore(playerHand);
+
+                if (playerScore > 21) {
+                    endGame("Bust! Du hast überkauft.", false);
+                } else if (playerScore === 21) {
+                    stand();
+                }
+            }, 300); // Animation muss schnell sein
+        }
+
+        /** Spieler bleibt stehen, Dealer ist an der Reihe. */
+        window.stand = function() {
+            if (!isGameActive) return;
+
+            ui.setControls(false);
+            ui.updateHands(true); 
+
+            let dealerInterval = setInterval(() => {
+                let dealerScore = getScore(dealerHand);
+                if (dealerScore < 17) {
+                    dealerHand.push(drawCard());
+                    ui.updateHands(true);
+                } else {
+                    clearInterval(dealerInterval);
+                    evaluateResult();
+                }
+            }, 600); // Dealer-Geschwindigkeit angepasst
+        }
+
+        /** Auswertung des Ergebnisses nach Dealer-Zug. */
+        function evaluateResult() {
+            const dealerScore = getScore(dealerHand);
+            const playerScore = getScore(playerHand);
+            
+            if (dealerScore > 21) {
+                endGame("Dealer Bust! Du gewinnst!", true);
+            } else if (playerScore > dealerScore) {
+                endGame("Du hast gewonnen!", true);
+            } else if (playerScore < dealerScore) {
+                endGame("Der Dealer gewinnt!", false);
+            } else {
+                endGame("Push! Unentschieden.", true, true);
+            }
+        }
+
+        /** Beendet die Runde und berechnet Gewinn/Verlust. */
+        function endGame(message, playerWon, isPush = false) {
+            isGameActive = false;
+            ui.setControls(false);
+            ui.updateHands(true); // Deckt die Dealer-Karte auf
+
+            let goldChange = 0;
+            let healthDamage = 0;
+
+            if (isPush) {
+                ui.showMessage(message, true);
+                setTimeout(nextAction, 1500);
+                return; 
+            }
+            
+            if (playerWon) {
+                // *** WICHTIGE KORREKTUR: ENCOUNTER HOCHZÄHLEN ***
+                if (gameMode === GAME_MODE.STANDARD) {
+                    currentFloor++; 
+                }
+                // **********************************************
+
+                // Gewinn: Gold und Boss-Schaden
+                if (gameMode === GAME_MODE.BOSS) {
+                    const damage = getScore(playerHand);
+                    bossHealth -= damage;
+                    
+                    if (bossHealth <= 0) {
+                        message = "BOSS besiegt! Du erhältst Bonus-Gold.";
+                        goldChange = Math.floor(100 * goldMultiplier);
+                        gameMode = GAME_MODE.STANDARD; 
+                        currentFloor++; // Nächsten Encounter nach BOSS-Sieg laden
+                    } else {
+                        message = `BOSS Schaden: ${damage}! HP: ${bossHealth}/${bossMaxHealth}.`;
+                        goldChange = Math.floor(20 * goldMultiplier); 
+                    }
+
+                } else {
+                    // Standard-Gewinn
+                    goldChange = Math.floor(25 * goldMultiplier);
+                }
+                playerGold += goldChange;
+                ui.showMessage(`${message} (+${goldChange} 💰)`, true);
+
+            } else {
+                // Verlust: Schaden erleiden
+                if (gameMode === GAME_MODE.BOSS) {
+                    healthDamage = Math.floor(20 + (currentFloor / 10) * 5); 
+                    if (message.includes("Bust")) healthDamage = Math.floor(healthDamage / 2);
+
+                } else {
+                    healthDamage = Math.floor(10 + currentFloor * 1.5);
+                }
+                
+                playerHealth -= healthDamage;
+                if (playerHealth <= 0) {
+                    playerHealth = 0; 
+                    ui.showMessage(`${message} (-${healthDamage} ❤️)`, true);
+                    saveHighscore(); 
+                    setTimeout(() => ui.changeState(GAME_STATE.GAMEOVER), 2000);
+                    return; 
+                }
+                
+                ui.showMessage(`${message} (-${healthDamage} ❤️)`, true);
+            }
+
+            ui.updateStatus();
+            setTimeout(nextAction, 1500); // 1.5 Sekunden warten, dann fortfahren
+        }
+        
+        /** Entscheidet, was als Nächstes passiert: Shop oder neuer Encounter */
+        function nextAction() {
+            if (playerHealth <= 0) {
+                saveHighscore();
+                ui.changeState(GAME_STATE.GAMEOVER);
+                return;
+            }
+
+            // Wenn im Boss-Modus verloren, Bosskampf fortsetzen
+            if (gameMode === GAME_MODE.BOSS) {
+                startEncounter(); 
+                return;
+            }
+            
+            // Standard: Nach 3 normalen Encountern kommt der Shop
+            if (currentFloor > 1 && (currentFloor-1) % 3 === 0 && currentFloor % 10 !== 0) {
+                // currentFloor-1, weil der Floor bei Gewinn schon hochgezählt wurde
+                renderShop();
+                ui.changeState(GAME_STATE.SHOP);
+            } else {
+                // Bei Gewinn im Standard-Modus wurde currentFloor bereits erhöht
+                // Beim Verlieren im Standard-Modus muss currentFloor nicht erhöht werden
+                if (currentFloor % 10 === 0) {
+                   // Wenn der nächste Encounter ein Boss ist
+                   startEncounter();
+                } else if (currentState === GAME_STATE.PLAYING) {
+                   // Weiter zum nächsten normalen Encounter
+                   startEncounter();
+                } else {
+                    // Fallback, wenn Logik im Shop-Exit schon lief
+                }
+            }
+        }
+        
+        // --- INITIALISIERUNG (Start der App) ---
+        
+        /** Startet die gesamte Anwendung. */
+        function initialize() {
+            const storedAchievements = JSON.parse(localStorage.getItem('achievements') || '[]');
+            storedAchievements.forEach(storedA => {
+                const index = ACHIEVEMENTS.findIndex(a => a.id === storedA.id);
+                if (index !== -1) {
+                    ACHIEVEMENTS[index].unlocked = storedA.unlocked;
+                }
+            });
+            
+            playerHealth = maxHealth;
+
+            ui.updateStatus();
+            ui.changeState(GAME_STATE.MENU); 
+            
+            // FÜR DIE ERSTEN TESTS: Verstecke das Game-Over Overlay sofort
+            document.getElementById('game-over-overlay').classList.add('hidden');
+        }
+
+        // Starte die App, wenn das Dokument vollständig geladen ist
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+
+</body>
+</html>

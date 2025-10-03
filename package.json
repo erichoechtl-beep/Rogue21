@@ -1,0 +1,23 @@
+{
+  "name": "rogue-21",
+  "version": "1.0.0",
+  "description": "Rogue 21 BlackJack Spiel verpackt mit Capacitor für Android.",
+  "main": "index.html",
+  "scripts": {
+    "build": "mkdir www && copy src\\index.html www\\",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "capacitor",
+    "android",
+    "blackjack"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/core": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "latest"
+  }
+}

@@ -2,614 +2,1313 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Rogue21 - Blackjack mit Upgrades</title>
-    <style>
-        body { font-family: 'Arial', sans-serif; background-color: #1a1a1a; color: #f0f0f0; margin: 20px; }
-        .container { max-width: 800px; margin: auto; background-color: #2c2c2c; padding: 20px; border-radius: 10px; }
-        h1, h2 { color: #ffd700; border-bottom: 2px solid #555; padding-bottom: 5px; }
-        button { background-color: #4CAF50; color: white; padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
-        button:hover { background-color: #45a049; }
-        button:disabled { background-color: #555; cursor: not-allowed; }
-        .card { display: inline-block; padding: 10px; margin: 5px; border: 1px solid #777; border-radius: 5px; background-color: white; color: black; font-weight: bold; }
-        .status, .output { margin-top: 15px; padding: 10px; border: 1px dashed #666; }
-        
-        /* Seltenheits-Farben für Shop */
-        .Gewöhnlich { color: #2ecc71; } /* Grün */
-        .Ungewöhnlich { color: #3498db; } /* Blau */
-        .Selten { color: #f1c40f; } /* Gelb/Gold */
-        .Episch { color: #9b59b6; } /* Lila */
-        .Legendär { color: #e67e22; } /* Orange */
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rogue 21</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
 
-        /* Blackjack Animation */
-        .blackjack-animation { 
-            color: #ff4500; 
-            font-size: 24px; 
-            font-weight: bold; 
-            text-align: center;
-            border: 4px double #ff4500;
-            padding: 10px;
-            margin: 10px 0;
-            animation: pulse 1s infinite alternate; 
+    <style>
+        /* WICHTIG: Stellt sicher, dass die App den gesamten Bildschirm einnimmt */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            min-height: 100vh;
+            overflow: hidden; 
+            box-sizing: border-box;
         }
-        @keyframes pulse {
-            from { transform: scale(1); box-shadow: 0 0 10px #ff4500; }
-            to { transform: scale(1.05); box-shadow: 0 0 20px #ff4500; }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            
+            /* NEU: Pokertisch Hintergrund */
+            background-color: #0b5302; 
+            background-image: radial-gradient(#117006 10%, #0b5302 60%);
+            background-attachment: fixed;
+        }
+        
+        /* Haupt-Container-Layout */
+        #app-container {
+            flex-grow: 1; 
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%; 
+            padding: 1rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        /* Allgemeine UI-Klassen */
+        .smooth-panel {
+            background-color: rgba(31, 41, 55, 0.9); /* Leicht transparent */
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #4b5563;
+        }
+        .smooth-btn {
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .smooth-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+        }
+        .smooth-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .smooth-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        /* --- SHOP SELTENHEITEN FÜR RANDFARBEN --- */
+        .rarity-common { border-color: #10b981; } /* Grün */
+        .rarity-uncommon { border-color: #3b82f6; } /* Blau */
+        .rarity-rare { border-color: #f59e0b; } /* Gelb */
+        .rarity-epic { border-color: #9333ea; } /* Lila */
+        .rarity-legendary { border-color: #f97316; } /* Orange */
+
+        /* --- KARTEN STYLING & ANIMATIONEN --- */
+        .card {
+            background-color: white;
+            color: black;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 75px;
+            height: 110px;
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0 4px 8px 4px;
+            position: relative;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            vertical-align: top;
+            
+            /* Neue Karten erscheinen, ohne dass die alte Hand kurz verschwindet */
+            opacity: 1;
+            transform: none;
+            transition: transform 0.4s ease-out;
+        }
+
+        .suit-red { color: #dc2626; }
+        .suit-black { color: #1f2937; }
+
+        .card-back {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #6366f1;
+            font-size: 20px;
+            font-family: monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        /* Definiert die Skins */
+        .skin-default { background-color: #4f46e5 !important; border-color: #6366f1 !important; }
+        .skin-gold { background-color: #f59e0b !important; border-color: #fbbf24 !important; }
+        .skin-cyber { background-color: #111827 !important; border-color: #3b82f6 !important; color: #a5f3fc !important; }
+        .skin-crimson { background-color: #991b1b !important; border-color: #ef4444 !important; }
+        /* NEU: Popkultur Skins */
+        .skin-matrix { background-color: #0d120a !important; border-color: #4ade80 !important; color: #4ade80 !important; font-family: monospace !important; }
+        .skin-balatro { background-image: linear-gradient(135deg, #a78bfa, #8b5cf6) !important; border-color: #c4b5fd !important; }
+
+        /* NEUE: Animation für das Ziehen einer neuen Karte */
+        .new-card-animation {
+            animation: flyIn 0.3s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes flyIn {
+            0% { 
+                transform: translateY(-50px) scale(0.8) rotateZ(5deg); 
+                opacity: 0; 
+            }
+            100% { 
+                transform: translateY(0) scale(1) rotateZ(0); 
+                opacity: 1; 
+            }
+        }
+        
+        /* KORRIGIERT: Blackjack Tänzchen Animation */
+        .blackjack-dance {
+            animation: jiggle 0.3s infinite alternate;
+        }
+
+        @keyframes jiggle {
+            0% { transform: rotate(0deg); box-shadow: 0 0 15px 5px rgba(255, 255, 0, 0.8); }
+            50% { transform: rotate(2deg) translateY(-3px); }
+            100% { transform: rotate(-2deg) translateY(3px); box-shadow: 0 0 15px 5px rgba(255, 165, 0, 0.8); }
+        }
+
+        /* Notification Box */
+        #notification-box {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            transition: transform 0.5s ease-out, opacity 0.5s;
+            opacity: 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        #notification-box.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
         }
     </style>
 </head>
-<body>
+<body class="text-white">
+    <div id="app-container" class="space-y-4">
 
-<div class="container">
-    <h1>🃏 Rogue21</h1>
-    <div class="status" id="status-display"></div>
-    
-    <div id="main-menu">
-        <h2>Hauptmenü</h2>
-        <button onclick="startGame()">▶️ Spielen</button>
-        <button onclick="showShop()">🛒 Shop</button>
-        <button onclick="document.getElementById('main-menu').style.display='none'; document.getElementById('game-area').style.display='none'; alert('Spiel beendet!');">🚪 Beenden</button>
-    </div>
-
-    <div id="game-setup" style="display: none;">
-        <h2>Wette setzen</h2>
-        <input type="number" id="bet-input" value="10" min="10" max="100">
-        <button onclick="startRound()">Wette Bestätigen</button>
-        <button onclick="showMainMenu()">Zurück</button>
-        <p id="bet-message"></p>
-    </div>
-
-    <div id="game-area" style="display: none;">
-        <div id="dealer-hand"></div>
-        <div id="player-hands"></div>
-        <div class="output" id="game-output"></div>
-
-        <h2>Aktionen</h2>
-        <button id="hit-btn" onclick="hit()">➕ Hit (Karte ziehen)</button>
-        <button id="stand-btn" onclick="stand()">🛑 Stand (Stehenbleiben)</button>
-        <button id="double-btn" onclick="doubleDown()">💰 Double Down (Verdoppelt Goldgewinn diese Runde)</button>
-        <button id="split-btn" onclick="split()">✂️ Split (Teilen)</button>
-        <button id="token-btn" onclick="useToken()" style="display:none;">🔮 Voraussicht-Token</button>
-        
-        <button onclick="endTurn()" style="display: none;" id="continue-btn">➡️ Weiter zur Auswertung</button>
-    </div>
-
-    <div id="shop-area" style="display: none;">
-        <h2>🛒 Rogue21 Shop</h2>
-        <ul id="shop-list" style="list-style: none; padding: 0;">
-            </ul>
-        <button onclick="showMainMenu()">Zurück zum Menü</button>
-    </div>
-</div>
-
-<script>
-// --- SPIELKONSTANTEN UND GLOBALE ZUSTÄNDE ---
-const SPIELNAME = "Rogue21";
-const WETT_MIN = 10;
-const WETT_MAX = 100;
-
-let playerGold = 100;
-let playerHP = 3;
-let playerInventory = [];
-let currentSkin = "Standard";
-let deck = [];
-
-let playerHands = []; // Struktur: [{cards: [], bet: 0, status: 'playing'}, ...]
-let dealerHand = [];
-let currentHandIndex = 0;
-let dealerRisk = false; // Für "Händler-Provokation"
-
-// Seltenheiten für den Shop (Farbe ist der CSS-Klassenname)
-const SELTENHEITEN = {
-    'Gewöhnlich': { klasse: 'Gewöhnlich', chance: 0.50 },
-    'Ungewöhnlich': { klasse: 'Ungewöhnlich', chance: 0.30 },
-    'Selten': { klasse: 'Selten', chance: 0.15 },
-    'Episch': { klasse: 'Episch', chance: 0.04 },
-    'Legendär': { klasse: 'Legendär', chance: 0.01 }
-};
-
-// Shop-Gegenstände
-const SHOP_GEGENSTAENDE = {
-    "Rogue-Skin (Keanu)": { kosten: 100, effekt: "Visuell", seltenheit: "Gewöhnlich" },
-    "Rogue-Skin (Terminator)": { kosten: 150, effekt: "Visuell", seltenheit: "Ungewöhnlich" },
-    "Glücks-Multiplikator": { kosten: 180, effekt: "Blackjack: 2:1 (Passiv)", seltenheit: "Selten" },
-    "Amulett der Erlösung": { kosten: 350, effekt: "Verhindert einmalig 0 HP (Passiv)", seltenheit: "Episch" },
-    "Voraussicht-Token": { kosten: 50, effekt: "Nächste Karte sehen und entscheiden (einmalig)", seltenheit: "Gewöhnlich" },
-    "Händler-Provokation": { kosten: 400, effekt: "Dealer spielt risikoreicher (einmalig)", seltenheit: "Legendär" }
-};
-
-// --- HILFSFUNKTIONEN ---
-
-function getCardValue(card) {
-    const rank = card.split('')[0]; // Z.B. 'A', '10', 'K'
-    if (['K', 'D', 'B'].includes(rank) || rank.length > 1) return 10;
-    if (rank === 'A') return 11;
-    return parseInt(rank);
-}
-
-function calculateHandValue(hand) {
-    let value = 0;
-    let aces = 0;
-    hand.forEach(card => {
-        value += getCardValue(card);
-        if (card.startsWith('A')) aces++;
-    });
-
-    while (value > 21 && aces > 0) {
-        value -= 10;
-        aces--;
-    }
-    return value;
-}
-
-function createDeck() {
-    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'B', 'D', 'K'];
-    const suits = ['♥', '♦', '♣', '♠'];
-    let newDeck = [];
-    for (let i = 0; i < 4; i++) { // 4 Decks
-        suits.forEach(suit => {
-            ranks.forEach(rank => {
-                newDeck.push(rank + suit);
-            });
-        });
-    }
-    // Mischen (Fisher-Yates)
-    for (let i = newDeck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
-    }
-    return newDeck;
-}
-
-function drawCard() {
-    return deck.pop();
-}
-
-// --- DISPLAY FUNKTIONEN ---
-
-function renderStatus() {
-    const passivEffects = [];
-    if (playerInventory.includes("Glücks-Multiplikator")) passivEffects.push("Blackjack: 2:1");
-    if (playerInventory.includes("Amulett der Erlösung")) passivEffects.push("Todesverhinderung");
-    
-    const inventoryList = playerInventory
-        .filter(item => !["Glücks-Multiplikator", "Amulett der Erlösung"].includes(item))
-        .join(', ');
-
-    document.getElementById('status-display').innerHTML = `
-        <h2>Spielerstatus</h2>
-        <p>💰 Gold: ${playerGold}</p>
-        <p>❤️ HP: ${playerHP}</p>
-        <p>🎭 Skin: ${currentSkin}</p>
-        <p>🎒 Inventar: ${inventoryList || 'Leer'}</p>
-        <p>✨ Passiv: ${passivEffects.join(', ') || 'Keine'}</p>
-    `;
-}
-
-function renderHands() {
-    let dealerHTML = `<h2>Dealer (Wert: ${dealerHand.length > 0 && playerHands.length > 0 && playerHands[currentHandIndex].status === 'playing' ? '?' : calculateHandValue(dealerHand)})</h2>`;
-    dealerHand.forEach((card, index) => {
-        if (index === 1 && playerHands.length > 0 && playerHands[currentHandIndex].status === 'playing') {
-            dealerHTML += `<span class="card">[???]</span>`;
-        } else {
-            dealerHTML += `<span class="card">${card}</span>`;
-        }
-    });
-    document.getElementById('dealer-hand').innerHTML = dealerHTML;
-
-    let playerHTML = '<h2>Deine Hände</h2>';
-    playerHands.forEach((hand, index) => {
-        const activeClass = index === currentHandIndex && hand.status === 'playing' ? 'style="border: 3px solid #ffd700;"' : '';
-        const handValue = calculateHandValue(hand.cards);
-        
-        playerHTML += `<div class="hand" ${activeClass}>`;
-        playerHTML += `<h4>Hand ${index + 1} (Wette: ${hand.bet} Gold, Wert: ${handValue}) - Status: ${hand.status.toUpperCase()}</h4>`;
-        hand.cards.forEach(card => {
-            playerHTML += `<span class="card">${card}</span>`;
-        });
-        playerHTML += `</div>`;
-    });
-    document.getElementById('player-hands').innerHTML = playerHTML;
-}
-
-function updateGameOutput(message, isBlackjack = false) {
-    const outputDiv = document.getElementById('game-output');
-    if (isBlackjack) {
-        outputDiv.innerHTML += `<div class="blackjack-animation">💥 BLACKJACK!!! 🎊🎉 WIRKLICH COOL! 🎉🎊</div>`;
-    } else {
-        outputDiv.innerHTML += `<p>${message}</p>`;
-    }
-    outputDiv.scrollTop = outputDiv.scrollHeight;
-}
-
-function enableActions(enable) {
-    document.getElementById('hit-btn').disabled = !enable;
-    document.getElementById('stand-btn').disabled = !enable;
-    
-    // Double Down nur bei 2 Karten und genug Gold
-    const currentHand = playerHands[currentHandIndex];
-    const canDouble = enable && currentHand && currentHand.cards.length === 2 && playerGold >= currentHand.bet;
-    document.getElementById('double-btn').disabled = !canDouble;
-    document.getElementById('double-btn').textContent = canDouble 
-        ? `💰 Double Down (Verdoppelt Goldgewinn diese Runde - Kostet ${currentHand.bet} Gold)` 
-        : '💰 Double Down';
-
-    // Split nur bei 2 gleichen Karten und genug Gold
-    const canSplit = enable && currentHand && currentHand.cards.length === 2 && getCardValue(currentHand.cards[0]) === getCardValue(currentHand.cards[1]) && playerGold >= currentHand.bet;
-    document.getElementById('split-btn').disabled = !canSplit;
-
-    // Token nur, wenn im Inventar
-    const tokenBtn = document.getElementById('token-btn');
-    const canUseToken = enable && playerInventory.includes("Voraussicht-Token");
-    tokenBtn.style.display = canUseToken ? 'inline-block' : 'none';
-}
-
-function showMainMenu() {
-    document.getElementById('main-menu').style.display = 'block';
-    document.getElementById('game-setup').style.display = 'none';
-    document.getElementById('game-area').style.display = 'none';
-    document.getElementById('shop-area').style.display = 'none';
-    renderStatus();
-}
-
-// --- SPIEL LOGIK ---
-
-function startGame() {
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-setup').style.display = 'block';
-    document.getElementById('game-area').style.display = 'none';
-    document.getElementById('bet-input').max = Math.min(WETT_MAX, playerGold);
-    document.getElementById('bet-message').textContent = `Wähle eine Wette zwischen ${WETT_MIN} und ${Math.min(WETT_MAX, playerGold)} Gold.`;
-    renderStatus();
-}
-
-function startRound() {
-    const betInput = document.getElementById('bet-input');
-    let bet = parseInt(betInput.value);
-
-    if (isNaN(bet) || bet < WETT_MIN || bet > WETT_MAX || bet > playerGold) {
-        alert(`Ungültige Wette! Min: ${WETT_MIN}, Max: ${WETT_MAX}, Dein Gold: ${playerGold}`);
-        return;
-    }
-
-    // Zustand zurücksetzen
-    deck = createDeck();
-    dealerHand = [];
-    playerHands = [];
-    currentHandIndex = 0;
-    document.getElementById('game-output').innerHTML = '';
-    dealerRisk = playerInventory.includes("Händler-Provokation");
-
-    // Karten austeilen
-    playerHands.push({ cards: [drawCard(), drawCard()], bet: bet, status: 'playing' });
-    dealerHand = [drawCard(), drawCard()];
-    playerGold -= bet;
-
-    // UI Wechsel
-    document.getElementById('game-setup').style.display = 'none';
-    document.getElementById('game-area').style.display = 'block';
-    document.getElementById('continue-btn').style.display = 'none';
-    
-    // Blackjack Prüfung
-    const playerValue = calculateHandValue(playerHands[0].cards);
-    const dealerValue = calculateHandValue(dealerHand);
-
-    renderHands();
-    
-    if (playerValue === 21) {
-        updateGameOutput("Spieler hat Blackjack!", true);
-        enableActions(false);
-        setTimeout(endTurn, 3000); // 3 Sekunden warten für Animation
-    } else {
-        updateGameOutput(`Starte Runde. Deine Wette: ${bet} Gold.`);
-        enableActions(true);
-    }
-    renderStatus();
-}
-
-// --- SPIELER AKTIONEN ---
-
-function hit() {
-    const currentHand = playerHands[currentHandIndex];
-    if (currentHand.status !== 'playing') return;
-
-    currentHand.cards.push(drawCard());
-    updateGameOutput(`Du ziehst eine Karte für Hand ${currentHandIndex + 1}.`);
-    
-    const value = calculateHandValue(currentHand.cards);
-    renderHands();
-
-    if (value > 21) {
-        currentHand.status = 'busted';
-        updateGameOutput(`Hand ${currentHandIndex + 1} ist überkauft (Bust: ${value}).`);
-        nextHandOrEndTurn();
-    } else if (value === 21) {
-        currentHand.status = 'stand';
-        updateGameOutput(`Hand ${currentHandIndex + 1} hat 21 Punkte.`);
-        nextHandOrEndTurn();
-    } else {
-        enableActions(true);
-    }
-}
-
-function stand() {
-    const currentHand = playerHands[currentHandIndex];
-    if (currentHand.status !== 'playing') return;
-
-    currentHand.status = 'stand';
-    updateGameOutput(`Du bleibst stehen bei Hand ${currentHandIndex + 1}.`);
-    nextHandOrEndTurn();
-}
-
-function doubleDown() {
-    const currentHand = playerHands[currentHandIndex];
-    if (currentHand.status !== 'playing' || currentHand.cards.length !== 2 || playerGold < currentHand.bet) return;
-
-    // Einsatz verdoppeln und Gold abziehen
-    playerGold -= currentHand.bet;
-    currentHand.bet *= 2;
-    
-    // Nur eine Karte ziehen
-    currentHand.cards.push(drawCard());
-    updateGameOutput(`🚀 Double Down! Neuer Einsatz: ${currentHand.bet} Gold. Nur eine Karte gezogen.`);
-    
-    const value = calculateHandValue(currentHand.cards);
-    renderHands();
-
-    if (value > 21) {
-        currentHand.status = 'busted';
-        updateGameOutput(`Hand ${currentHandIndex + 1} ist überkauft (Bust: ${value}).`);
-    } else {
-        currentHand.status = 'stand';
-    }
-    nextHandOrEndTurn();
-}
-
-function split() {
-    const currentHand = playerHands[currentHandIndex];
-    if (currentHand.status !== 'playing' || currentHand.cards.length !== 2 || getCardValue(currentHand.cards[0]) !== getCardValue(currentHand.cards[1]) || playerGold < currentHand.bet) return;
-    
-    const originalBet = currentHand.bet;
-    playerGold -= originalBet; // Zusätzlichen Einsatz abziehen
-    
-    const card1 = currentHand.cards[0];
-    const card2 = currentHand.cards[1];
-
-    // Neue Hände erstellen und erste Karte ziehen
-    const newHand1 = { cards: [card1, drawCard()], bet: originalBet, status: 'playing' };
-    const newHand2 = { cards: [card2, drawCard()], bet: originalBet, status: 'playing' };
-
-    // Aktuelle Hand ersetzen und neue Hand hinzufügen
-    playerHands.splice(currentHandIndex, 1, newHand1, newHand2);
-    updateGameOutput("✂️ Split! Die Hand wurde in zwei getrennte Hände aufgeteilt.");
-
-    // Sonderregel für Asse: sofortiger Stand nach dem Split
-    if (card1.startsWith('A')) {
-        newHand1.status = 'stand';
-        newHand2.status = 'stand';
-        updateGameOutput("♠️ Asse geteilt! Nur eine Karte pro Hand. Stehenbleiben erzwungen.");
-    }
-
-    renderHands();
-    nextHandOrEndTurn(true); // Mit True wird Hand 1 direkt gestartet (da Hand 0 ersetzt wurde)
-}
-
-function useToken() {
-    if (!playerInventory.includes("Voraussicht-Token")) return;
-
-    const nextCard = deck[deck.length - 1];
-    const userChoice = confirm(`🔮 Die nächste Karte im Deck ist: [${nextCard}]. Möchtest du diese Karte ziehen?`);
-    
-    playerInventory.splice(playerInventory.indexOf("Voraussicht-Token"), 1);
-    updateGameOutput(`Token verbraucht.`);
-    
-    if (userChoice) {
-        hit(); // Ruft hit() auf, das die Karte zieht und die Runde weiterführt
-    } else {
-        updateGameOutput("Du hast dich entschieden, die Karte nicht zu ziehen. Spiele weiter.");
-        renderStatus();
-    }
-    // Nach Nutzung Token-Button ausblenden
-    document.getElementById('token-btn').style.display = 'none';
-}
-
-
-function nextHandOrEndTurn(isSplit = false) {
-    if (isSplit) {
-        // Bei Split bleiben wir bei der aktuellen Index-Position, um die erste neue Hand zu spielen
-        // Außer bei Assen, dann geht's weiter.
-    } else {
-        currentHandIndex++;
-    }
-
-    while (currentHandIndex < playerHands.length && playerHands[currentHandIndex].status !== 'playing') {
-        currentHandIndex++; // Springe zu 'playing' Hand
-    }
-
-    if (currentHandIndex < playerHands.length) {
-        // Nächste Hand spielen
-        updateGameOutput(`--- Nächste Hand: Hand ${currentHandIndex + 1} ---`);
-        renderHands();
-        enableActions(true);
-    } else {
-        // Alle Spielerhände fertig
-        enableActions(false);
-        document.getElementById('continue-btn').style.display = 'block';
-        updateGameOutput("Alle deine Hände sind gespielt. Dealer ist an der Reihe.");
-    }
-}
-
-
-// --- DEALER LOGIK UND AUSWERTUNG ---
-
-function endTurn() {
-    enableActions(false);
-    document.getElementById('continue-btn').style.display = 'none';
-
-    // 1. Dealer spielt
-    let dealerValue = calculateHandValue(dealerHand);
-    let minDealerValue = dealerRisk ? 16 : 17; // Händler-Provokation ändert die Regel
-
-    updateGameOutput(`\n--- Dealer spielt (Minimum: ${minDealerValue}) ---`);
-    renderHands();
-
-    // Remove one-time dealer-risk item
-    if (dealerRisk && playerInventory.includes("Händler-Provokation")) {
-        playerInventory.splice(playerInventory.indexOf("Händler-Provokation"), 1);
-        renderStatus();
-    }
-    
-    while (dealerValue < minDealerValue) {
-        const newCard = drawCard();
-        dealerHand.push(newCard);
-        dealerValue = calculateHandValue(dealerHand);
-        updateGameOutput(`Dealer zieht: [${newCard}]. Wert: ${dealerValue}`);
-        renderHands(); // Update nach jedem Zug
-    }
-
-    if (dealerValue > 21) {
-        updateGameOutput("Dealer Bust! Alle verbleibenden Spielerhände gewinnen.");
-    } else {
-        updateGameOutput(`Dealer bleibt bei ${dealerValue}.`);
-    }
-    
-    // 2. Auswertung
-    updateGameOutput("\n--- Auswertung aller Hände ---");
-    
-    let totalWin = 0;
-    
-    playerHands.forEach((hand, index) => {
-        const playerValue = calculateHandValue(hand.cards);
-        let message = `Hand ${index + 1} (Wert: ${playerValue}, Wette: ${hand.bet}): `;
-        
-        if (playerValue > 21) {
-            message += "Verloren (Bust).";
-            totalWin -= hand.bet;
-        } else if (dealerValue > 21 || playerValue > dealerValue) {
-            let winAmount = hand.bet;
+        <div class="flex justify-between items-center smooth-panel p-3">
+            <div class="flex items-center space-x-4">
+                <span id="player-health" class="text-red-400 font-black text-xl">100/100 ❤️</span>
+                <span id="player-gold" class="text-yellow-400 font-black text-xl">0 💰</span>
+            </div>
             
-            // Blackjack Auszahlung (falls 2 Karten und 21, und Dealer kein Blackjack hat)
-            if (playerValue === 21 && hand.cards.length === 2 && dealerValue !== 21) {
-                const bjMultiplier = playerInventory.includes("Glücks-Multiplikator") ? 2 : 1.5;
-                winAmount = hand.bet * bjMultiplier;
-                message += `🎉 Blackjack! Gewinn (${bjMultiplier}:1): ${winAmount} Gold.`;
-            } else {
-                message += `Gewonnen! Gewinn (1:1): ${winAmount} Gold.`;
+            <div class="flex items-center space-x-4">
+                <span id="current-floor" class="text-lg font-black bg-blue-700 py-1 px-3 rounded-full shadow-lg">Level 1</span>
+                <div id="reroll-charges-display" class="flex items-center space-x-1 text-blue-400 font-black text-xl bg-gray-700 py-1 px-3 rounded-full shadow-lg">
+                    <span class="text-2xl">🎲</span>
+                    <span id="reroll-count">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="boss-status-bar" class="smooth-panel p-3 bg-red-800/50 border-red-500 hidden">
+            <p class="font-bold text-center mb-1">BOSS HEALTH</p>
+            <div class="relative pt-1">
+                <div class="overflow-hidden h-4 mb-4 text-xs flex rounded bg-red-200">
+                    <div id="boss-health-bar" style="width: 100%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500 transition-all duration-300 ease-out"></div>
+                </div>
+                <div id="boss-health" class="absolute top-0 left-0 right-0 text-center font-black text-xs text-white"></div>
+            </div>
+        </div>
+
+        <div id="notification-box" class="hidden"></div>
+        
+        <div id="main-menu" class="flex-grow flex flex-col justify-center items-center space-y-6">
+            <h1 class="text-6xl font-black text-yellow-400 drop-shadow-lg">Rogue 21</h1>
+            <button onclick="startNewRun()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-64 py-4 text-xl">Neuer Run</button>
+            <button onclick="showCosmeticsShop()" class="smooth-btn bg-purple-600 hover:bg-purple-700 text-white w-64 py-4 text-xl">Skins & Punkte (<span id="total-points">0</span> ⭐)</button>
+            <button onclick="showHighscores()" class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white w-64 py-4 text-xl">Highscores</button>
+            <button onclick="showAchievements()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-64 py-4 text-xl">Achievements</button>
+        </div>
+
+        <div id="gameplay-state" class="flex-grow flex flex-col justify-between hidden">
+            <div class="smooth-panel p-3 mb-2">
+                <h3 id="dealer-title" class="text-lg font-bold text-center mb-2">Dealer's Hand</h3>
+                <div id="dealer-hand" class="flex justify-center flex-wrap">
+                    </div>
+            </div>
+            
+            <div id="message-box" class="text-center font-black text-2xl py-3 rounded-lg my-4 transition-colors duration-300 bg-gray-800/50">Mach deinen Zug!</div>
+
+            <div class="smooth-panel p-3 mt-2">
+                <h3 class="text-lg font-bold text-center mb-2">Deine Hand (<span id="player-score">0</span>)</h3>
+                <div id="player-hand" class="flex justify-center flex-wrap">
+                    </div>
+            </div>
+
+            <div class="flex justify-center space-x-2 pt-4 pb-2">
+                <button id="btn-hit" onclick="hit()" class="smooth-btn bg-green-500 hover:bg-green-600 w-32 py-3 text-lg">Hit</button>
+                <button id="btn-stand" onclick="stand()" class="smooth-btn bg-red-500 hover:bg-red-600 w-32 py-3 text-lg">Stand</button>
+                <button id="btn-double" onclick="doubleDown()" class="smooth-btn bg-yellow-500 hover:bg-yellow-600 w-32 py-3 text-sm">Double (<span id="double-tooltip">Verdoppelt Goldgewinn</span>)</button>
+                <button id="btn-split" onclick="splitHand()" class="smooth-btn bg-blue-500 hover:bg-blue-600 w-32 py-3 text-lg hidden" disabled>Split</button>
+            </div>
+            
+            <div id="preview-card-box" class="smooth-panel p-2 flex justify-between items-center mt-2 hidden">
+                <span class="font-bold text-gray-300">Nächste Karte: <span id="preview-card-placeholder">...</span></span>
+                <div class="space-x-2">
+                    <button id="btn-accept-preview" onclick="acceptPreviewCard()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white py-1 px-3 text-sm">Nehmen</button>
+                    <button id="btn-reject-preview" onclick="rejectPreviewCard()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white py-1 px-3 text-sm">Ablehnen</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="shop-container" class="flex-grow flex flex-col justify-center hidden">
+            <div class="smooth-panel p-6 space-y-4">
+                <h2 class="text-3xl font-black text-center text-yellow-400 mb-4">Shop</h2>
+                <div class="flex justify-between items-center text-xl font-bold p-2 bg-gray-800 rounded">
+                    <span>Dein Gold:</span>
+                    <span id="shop-gold-display" class="text-yellow-400">0 💰</span>
+                </div>
+                
+                <h3 class="text-xl font-bold text-gray-300 pt-2 border-t border-gray-600">Items (Wähle 3, mit Seltenheit)</h3>
+                <div id="shop-items" class="space-y-3">
+                    </div>
+
+                <div class="pt-4 flex justify-between space-x-4">
+                    <button onclick="exitShop()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white flex-grow py-3 text-lg">Weiter zu Level <span id="next-level-display"></span></button>
+                    <button onclick="backToMenuFromShop()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 text-lg">Aufgeben</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="cosmetics-shop" class="flex-grow flex flex-col justify-center hidden">
+            <div class="smooth-panel p-6 space-y-4">
+                <h2 class="text-3xl font-black text-center text-purple-400 mb-4">Cosmetics Shop</h2>
+                <div class="flex justify-between items-center text-xl font-bold p-2 bg-gray-800 rounded">
+                    <span>Deine Punkte:</span>
+                    <span id="cosmetics-points-display" class="text-purple-400">0 ⭐</span>
+                </div>
+                
+                <h3 class="text-xl font-bold text-gray-300 pt-2 border-t border-gray-600">Kartenrücken</h3>
+                <div id="card-back-shop-items" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    </div>
+                
+                <button onclick="ui.changeState('MENU')" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-3 text-lg mt-4">Zurück zum Menü</button>
+            </div>
+        </div>
+        
+        <div id="game-over-overlay" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center z-50 hidden">
+            <h1 class="text-6xl font-black text-red-500 mb-6 drop-shadow-xl">GAME OVER</h1>
+            <p class="text-xl text-white mb-2">Du hast es bis Level <span id="final-floor" class="text-yellow-400 font-bold">1</span> geschafft.</p>
+            <p class="text-xl text-white mb-8">Gesammeltes Gold: <span id="final-gold" class="text-yellow-400 font-bold">0</span> 💰</p>
+            <button onclick="resetGame()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-64 py-4 text-xl">Neuer Versuch</button>
+        </div>
+
+        <div id="info-modal-overlay" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+            <div class="smooth-panel p-6 w-11/12 max-w-md">
+                <h2 id="modal-title" class="text-2xl font-black text-center mb-4 text-blue-400">Titel</h2>
+                <div id="modal-content" class="text-white space-y-3 max-h-96 overflow-y-auto pr-2">
+                    </div>
+                <button onclick="closeModal()" class="smooth-btn bg-gray-600 hover:bg-gray-700 text-white w-full py-2 mt-6">Schließen</button>
+            </div>
+        </div>
+
+    </div>
+    <script type="module">
+        // --- GAME STATES UND MANAGER ---
+        const GAME_STATE = {
+            MENU: 'MENU',
+            PLAYING: 'PLAYING',
+            SHOP: 'SHOP',
+            COSMETICS: 'COSMETICS',
+            GAMEOVER: 'GAMEOVER'
+        };
+        
+        const GAME_MODE = {
+            STANDARD: 'STANDARD',
+            BOSS: 'BOSS'
+        };
+
+        let currentState = GAME_STATE.MENU;
+        let deck = [];
+        let playerHand = [];
+        let dealerHand = [];
+        let isGameActive = false;
+        let turnCount = 0;
+
+        // Roguelike Status
+        let playerHealth = 100;
+        let maxHealth = 100;
+        let playerGold = 0;
+        let currentLevel = 1;
+        
+        // Modifikatoren
+        let goldMultiplier = 1;
+        let rerollCharges = 0; 
+        let doubleDownUsed = false;
+        let blackjackMultiplier = 1; // NEU: Für Rare Item
+        let hasExtraLife = false; // NEU: Für Epic Item
+        let dealerRiskLevel = 0; // NEU: Für Legendary Item (0=Standard, 1=Riskant)
+
+        // BOSS Status
+        let gameMode = GAME_MODE.STANDARD;
+        let bossHealth = 0;
+        let bossMaxHealth = 0;
+        
+        // Preview Karte
+        let previewCard = null; // NEU: Speichert die Karte, die der Spieler sehen kann
+
+        // Cosmetics/Progression
+        let totalPoints = parseInt(localStorage.getItem('totalPoints') || '0', 10);
+        let highscores = JSON.parse(localStorage.getItem('blackjackHighscores') || '[]');
+        let unlockedSkins = JSON.parse(localStorage.getItem('unlockedSkins') || '["default"]');
+        let equippedSkin = localStorage.getItem('equippedSkin') || 'default';
+        
+        // Konstanten
+        const SUITS = ['♥', '♦', '♣', '♠'];
+        const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+        const ACHIEVEMENTS = [
+            { id: 'first_win', name: 'Erster Sieg', condition: () => currentLevel >= 2, points: 10, unlocked: false },
+            { id: 'level_5', name: 'Wegbereiter (Level 5)', condition: () => currentLevel >= 5, points: 50, unlocked: false },
+            { id: '100_gold', name: 'Reichtum', condition: () => playerGold >= 100, points: 20, unlocked: false },
+            { id: 'first_boss_kill', name: 'Erster Bosskill', condition: () => currentLevel > 10, points: 100, unlocked: false }
+        ];
+        
+        // NEU: Seltenheiten Definition
+        const RARITY = {
+            COMMON: { name: 'Gewöhnlich', color: 'text-green-400', css: 'rarity-common', chance: 50 },
+            UNCOMMON: { name: 'Ungewöhnlich', color: 'text-blue-400', css: 'rarity-uncommon', chance: 30 },
+            RARE: { name: 'Selten', color: 'text-yellow-400', css: 'rarity-rare', chance: 15 },
+            EPIC: { name: 'Episch', color: 'text-purple-400', css: 'rarity-epic', chance: 4.5 },
+            LEGENDARY: { name: 'Legendär', color: 'text-orange-400', css: 'rarity-legendary', chance: 0.5 }
+        };
+
+        // KORRIGIERT UND ERWEITERT: Shop Items mit Seltenheit und neuer Logik
+        const SHOP_ITEMS_POOL = [
+            // Gewöhnlich (COMMON)
+            { id: 'max_hp_boost', name: '+10 Max Health', cost: 30, rarity: RARITY.COMMON, effect: () => { maxHealth += 10; playerHealth += 10; ui.updateStatus(); showNotification("Max Health erhöht.", 'bg-green-500'); } }, 
+            { id: 'heal_15', name: 'Heilung (15 HP)', cost: 20, rarity: RARITY.COMMON, effect: () => { playerHealth = Math.min(maxHealth, playerHealth + 15); ui.updateStatus(); showNotification("Du wurdest geheilt.", 'bg-green-500'); } },
+            
+            // Ungewöhnlich (UNCOMMON)
+            { id: 'extra_life_small', name: 'Robuste Haut (+20 HP)', cost: 80, rarity: RARITY.UNCOMMON, effect: () => { maxHealth += 20; playerHealth += 20; ui.updateStatus(); showNotification("Du fühlst dich robuster.", 'bg-blue-500'); } }, 
+            { id: 'add_reroll_charge', name: 'Würfel-Charge (+1)', cost: 25, rarity: RARITY.UNCOMMON, effect: () => { rerollCharges += 1; ui.showMessage(`Du hast 1 Charge zum Würfeln erhalten. Aktuell: ${rerollCharges}`, false); showNotification(`+1 Würfel-Charge.`, 'bg-blue-500'); } }, 
+            { id: 'damage_reduction', name: 'Schadensresistenz', cost: 70, rarity: RARITY.UNCOMMON, effect: () => { playerHealth += 5; ui.updateStatus(); showNotification("Schadensresistenz erworben.", 'bg-blue-500'); } },
+
+            // Selten (RARE)
+            { id: 'preview_card', name: 'Seherblick', cost: 50, rarity: RARITY.RARE, effect: () => { 
+                showNotification("Seherblick aktiviert! Benutze ihn im nächsten Zug.", 'bg-yellow-600'); 
+                previewCard = drawCard();
+                ui.showPreviewCard(previewCard); 
+            }, available: () => !previewCard, isConsumable: true }, // Einmalige Nutzung pro Kauf
+            { id: 'blackjack_multiplier_rare', name: 'Glücks-Multiplikator (x1.5)', cost: 120, rarity: RARITY.RARE, effect: () => { 
+                blackjackMultiplier = 1.5; 
+                showNotification("Blackjack Auszahlung x1.5!", 'bg-yellow-600'); 
+            }, available: () => blackjackMultiplier === 1 },
+            
+            // Episch (EPIC)
+            { id: 'extra_life_epic', name: 'Phönix-Amulett', cost: 200, rarity: RARITY.EPIC, effect: () => { 
+                hasExtraLife = true; 
+                showNotification("Phönix-Amulett aktiviert. Einmaliger Todesschutz!", 'bg-purple-600'); 
+            }, available: () => !hasExtraLife },
+
+            // Legendär (LEGENDARY)
+            { id: 'dealer_risk', name: 'Risikobereiter Dealer', cost: 400, rarity: RARITY.LEGENDARY, effect: () => { 
+                dealerRiskLevel = 1; 
+                showNotification("Dealer spielt jetzt risikofreudiger!", 'bg-orange-600'); 
+            }, available: () => dealerRiskLevel === 0 },
+            { id: 'gold_double', name: 'Gold-Multiplikator (x2)', cost: 300, rarity: RARITY.LEGENDARY, effect: () => { 
+                goldMultiplier = 2; 
+                ui.showMessage('Gold wird ab jetzt verdoppelt! (Passiv)', false); 
+                showNotification('Gold x2 freigeschaltet!', 'bg-orange-600'); 
+            }, available: () => goldMultiplier === 1 }, 
+        ];
+        let currentShopItems = []; 
+
+        // NEU: Popkultur Skins hinzugefügt
+        const CARD_BACK_SKINS = [
+            { id: 'default', name: 'Standard (Lila)', cost: 0, cssClass: 'skin-default' },
+            { id: 'gold', name: 'Gold Rush', cost: 100, cssClass: 'skin-gold' },
+            { id: 'matrix', name: 'The Matrix (Code)', cost: 200, cssClass: 'skin-matrix' }, // NEU
+            { id: 'balatro', name: 'Balatro Style', cost: 300, cssClass: 'skin-balatro' }, // NEU
+            { id: 'cyber', name: 'Cyber Grid', cost: 250, cssClass: 'skin-cyber' },
+            { id: 'crimson', name: 'Crimson Edge', cost: 500, cssClass: 'skin-crimson' }
+        ];
+
+        // --- HILFSFUNKTIONEN ---
+
+        /** Erstellt und mischt ein neues Deck. */
+        function createDeck() {
+            // ... (Funktion bleibt gleich)
+            const newDeck = [];
+            for (const suit of SUITS) {
+                for (const value of VALUES) {
+                    newDeck.push({ suit, value });
+                }
             }
-            totalWin += winAmount;
-        } else if (playerValue === dealerValue) {
-            message += "Unentschieden (Push). Einsatz zurück.";
-            playerGold += hand.bet; // Einsatz zurückgeben
-        } else {
-            message += "Verloren.";
-            totalWin -= hand.bet;
+            // Fisher-Yates Shuffle
+            for (let i = newDeck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+            }
+            return newDeck;
         }
-        updateGameOutput(message);
-    });
 
-    // 3. Gold aktualisieren
-    playerGold += totalWin;
+        /** Berechnet den bestmöglichen Blackjack-Score für eine Hand. */
+        function getScore(hand) {
+            let score = 0;
+            let numAces = 0;
+            for (const card of hand) {
+                if (card.value === 'A') {
+                    numAces++;
+                    score += 11;
+                } else if (['K', 'Q', 'J', '10'].includes(card.value)) {
+                    score += 10;
+                } else {
+                    score += parseInt(card.value);
+                }
+            }
+            while (score > 21 && numAces > 0) {
+                score -= 10;
+                numAces--;
+            }
+            return score;
+        }
 
-    // 4. HP-Regelung
-    if (playerGold <= 0) {
-        playerHP -= 1;
-        updateGameOutput(`\n⚠️ Du hast dein Gold verloren und verlierst 1 HP. Aktuelle HP: ${playerHP}`);
+        /** Zeichnet eine Karte vom Deck. */
+        function drawCard() {
+            if (deck.length === 0) deck = createDeck();
+            return deck.pop();
+        }
+
+        /** Erstellt das HTML-Element für eine Karte. */
+        function createCardElement(card, isHidden = false, index = -1, isNewCard = false) {
+            const suitClass = (card.suit === '♥' || card.suit === '♦') ? 'suit-red' : 'suit-black';
+            const cardBackSkin = CARD_BACK_SKINS.find(s => s.id === equippedSkin) || CARD_BACK_SKINS[0];
+            
+            const content = isHidden 
+                ? `<div class="font-black">R21</div>` 
+                : `<div class="text-3xl">${card.suit}</div><div class="text-xl">${card.value}</div>`;
+                
+            const hiddenClass = isHidden 
+                ? `card-back ${cardBackSkin.cssClass}` 
+                : 'bg-white';
+            
+            const animationClass = isNewCard ? 'new-card-animation' : '';
+            
+            const rerollButton = (rerollCharges > 0 && !isHidden && index !== -1) ? 
+                `<button onclick="rerollCard(${index})" class="text-xs absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-br-md rounded-tl-md font-bold">R</button>` : '';
+
+            return `
+                <div class="card ${suitClass} ${hiddenClass} ${animationClass}" data-card-index="${index}">
+                    ${content}
+                    ${rerollButton}
+                </div>
+            `;
+        }
         
-        // Amulett der Erlösung prüfen
-        if (playerHP <= 0 && playerInventory.includes("Amulett der Erlösung")) {
-            playerHP = 1;
-            playerInventory.splice(playerInventory.indexOf("Amulett der Erlösung"), 1);
-            updateGameOutput("✨ Amulett der Erlösung aktiviert! Dein Tod wurde verhindert. Das Amulett ist nun verbraucht.");
+        /** Benachrichtigung anzeigen */
+        let notificationTimeout;
+        function showNotification(message, bgColorClass = 'bg-blue-600', duration = 3000) {
+            const el = document.getElementById('notification-box');
+            el.innerHTML = message;
+            el.className = bgColorClass + ' show';
+            el.classList.remove('hidden');
+
+            clearTimeout(notificationTimeout);
+            notificationTimeout = setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.classList.add('hidden'), 500);
+            }, duration);
+        }
+
+        /** Spieler kann eine Karte neu ziehen (kostet eine Charge). */
+        window.rerollCard = function(index) {
+            if (!isGameActive || rerollCharges <= 0 || index < 0 || index >= playerHand.length) return;
+            
+            rerollCharges -= 1;
+            playerHand.splice(index, 1, drawCard());
+            
+            ui.updateHands(false);
+            ui.showMessage(`Karte neu gewürfelt! (${rerollCharges} Charges übrig)`, false);
+            ui.updateStatus();
+            
+            const playerScore = getScore(playerHand);
+            if (playerScore > 21) {
+                endGame("Bust nach dem Würfeln!", false);
+            } else if (playerScore === 21) {
+                stand();
+            }
         }
         
-        // Neues Startgold
-        if (playerGold <= 0 && playerHP > 0) {
-            playerGold = 50;
-            updateGameOutput("Neues Startkapital von 50 Gold erhalten.");
+        /** Speichert Highscore und Punkte */
+        function saveHighscore() {
+            // ... (Funktion bleibt gleich)
+            const newScore = {
+                floor: currentLevel,
+                gold: playerGold,
+                date: new Date().toISOString().slice(0, 10)
+            };
+            highscores.push(newScore);
+            highscores.sort((a, b) => b.floor - a.floor || b.gold - a.gold);
+            
+            highscores = highscores.slice(0, 10); 
+            
+            localStorage.setItem('blackjackHighscores', JSON.stringify(highscores));
+            localStorage.setItem('totalPoints', totalPoints.toString());
+            
+            checkAchievements();
         }
-    }
-    
-    if (playerHP <= 0) {
-        document.getElementById('game-area').style.display='none';
-        alert(`--- GAME OVER --- Dein Abenteuer endet hier. Letztes Gold: ${playerGold}`);
-        showMainMenu();
-    } else {
-        // Zurück zum Spiel-Setup
-        setTimeout(startGame, 5000); 
-    }
-    renderStatus();
-}
 
-// --- SHOP LOGIK ---
+        /** Achievement-Prüfung */
+        function checkAchievements() {
+            // ... (Funktion bleibt gleich)
+            let pointsGained = 0;
+            const achievementsStatus = JSON.parse(localStorage.getItem('achievements') || '[]');
+            
+            ACHIEVEMENTS.forEach(a => {
+                const storedA = achievementsStatus.find(sa => sa.id === a.id) || a;
 
-function showShop() {
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-setup').style.display = 'none';
-    document.getElementById('game-area').style.display = 'none';
-    document.getElementById('shop-area').style.display = 'block';
-    renderShop();
-}
+                if (!storedA.unlocked && a.condition()) {
+                    storedA.unlocked = true;
+                    totalPoints += a.points;
+                    pointsGained += a.points;
+                    showNotification(`ACHIEVEMENT: ${a.name} freigeschaltet! (+${a.points} ⭐)`, 'bg-yellow-600', 5000);
+                }
+            });
+            
+            const updatedAchievements = ACHIEVEMENTS.map(a => {
+                const storedA = achievementsStatus.find(sa => sa.id === a.id);
+                return storedA ? storedA : a;
+            });
 
-function renderShop() {
-    let shopHTML = '';
-    const shopList = document.getElementById('shop-list');
-    let itemIndex = 1;
+            if (pointsGained > 0) {
+                localStorage.setItem('totalPoints', totalPoints.toString());
+            }
+            localStorage.setItem('achievements', JSON.stringify(updatedAchievements));
+        }
 
-    for (const name in SHOP_GEGENSTAENDE) {
-        const details = SHOP_GEGENSTAENDE[name];
-        const rarity = details.seltenheit;
-        const colorClass = SELTENHEITEN[rarity].klasse;
-        const isDisabled = playerGold < details.kosten;
+        // --- UI Controller ---
 
-        // Prüfen, ob passiver Gegenstand bereits im Inventar ist
-        const isPassiveOwned = ["Glücks-Multiplikator", "Amulett der Erlösung"].includes(name) && playerInventory.includes(name);
+        const ui = {
+            // Element IDs
+            dealerHandEl: document.getElementById('dealer-hand'),
+            playerHandEl: document.getElementById('player-hand'),
+            playerScoreEl: document.getElementById('player-score'),
+            playerHealthEl: document.getElementById('player-health'),
+            playerGoldEl: document.getElementById('player-gold'),
+            currentLevelEl: document.getElementById('current-floor'),
+            rerollCountEl: document.getElementById('reroll-count'), 
+            messageBoxEl: document.getElementById('message-box'),
+            btnHit: document.getElementById('btn-hit'),
+            btnStand: document.getElementById('btn-stand'),
+            btnDouble: document.getElementById('btn-double'),
+            btnSplit: document.getElementById('btn-split'),
+            dealerTitleEl: document.getElementById('dealer-title'),
+            gameOverOverlay: document.getElementById('game-over-overlay'),
+            bossStatusBarEl: document.getElementById('boss-status-bar'),
+            bossHealthEl: document.getElementById('boss-health'),
+            bossHealthBarEl: document.getElementById('boss-health-bar'),
+            previewCardBoxEl: document.getElementById('preview-card-box'), // NEU
+            previewCardPlaceholderEl: document.getElementById('preview-card-placeholder'), // NEU
+
+
+            mainMenuEl: document.getElementById('main-menu'),
+            shopContainerEl: document.getElementById('shop-container'),
+            gameplayStateEl: document.getElementById('gameplay-state'),
+            cosmeticsShopEl: document.getElementById('cosmetics-shop'),
+            shopGoldDisplayEl: document.getElementById('shop-gold-display'),
+            cosmeticsPointsDisplayEl: document.getElementById('cosmetics-points-display'),
+            shopItemsEl: document.getElementById('shop-items'),
+            infoModalOverlay: document.getElementById('info-modal-overlay'),
+            modalTitleEl: document.getElementById('modal-title'),
+            modalContentEl: document.getElementById('modal-content'),
+            totalPointsEl: document.getElementById('total-points'),
+            nextLevelDisplayEl: document.getElementById('next-level-display'),
+
+
+            // Methoden
+            
+            /** Aktualisiert die Karten-HTML beider Hände. */
+            updateHands(revealDealer = false) {
+                this.dealerHandEl.innerHTML = dealerHand.map((card, index) =>
+                    createCardElement(card, !revealDealer && index === 0)
+                ).join('');
+
+                this.playerHandEl.innerHTML = playerHand.map((card, index) => createCardElement(card, false, index)).join('');
+
+                this.updateScoreAndControls(revealDealer);
+            },
+            
+            /** Fügt EINE einzelne Karte mit Animation hinzu und aktualisiert sofort den Score. */
+            addCardToHand(hand, card, isDealer = false) {
+                hand.push(card);
+                
+                const containerEl = isDealer ? this.dealerHandEl : this.playerHandEl;
+                const index = hand.length - 1;
+                
+                const cardHTML = createCardElement(card, isDealer && hand.length === 2, isDealer ? -1 : index, true);
+                containerEl.insertAdjacentHTML('beforeend', cardHTML);
+
+                this.updateScoreAndControls();
+            },
+
+            /** Aktualisiert Score, Dealer-Titel und Kontrollen. */
+            updateScoreAndControls(revealDealer = false) {
+                const playerScore = getScore(playerHand);
+                this.playerScoreEl.textContent = playerScore;
+
+                if (revealDealer) {
+                    this.dealerTitleEl.textContent = `Dealer's Hand (${getScore(dealerHand)})`;
+                } else {
+                    this.dealerTitleEl.textContent = "Dealer's Hand";
+                }
+                
+                // Kontrollen nach Zug aktualisieren
+                this.btnDouble.disabled = turnCount !== 0 || doubleDownUsed;
+                this.btnSplit.classList.toggle('hidden', turnCount !== 0 || playerHand.length !== 2 || playerHand[0].value !== playerHand[1].value);
+                
+                // NEU: Double Button Tooltip
+                document.getElementById('double-tooltip').textContent = doubleDownUsed ? 'Verbraucht' : 'Verdoppelt Goldgewinn';
+
+                if (playerScore > 21) {
+                    this.setControls(false);
+                }
+                
+                // NEU: Preview Card Handling
+                if (previewCard) {
+                    this.previewCardBoxEl.classList.remove('hidden');
+                } else {
+                    this.previewCardBoxEl.classList.add('hidden');
+                }
+            },
+
+
+            updateStatus() {
+                this.playerHealthEl.textContent = `${playerHealth}/${maxHealth} ❤️`;
+                this.playerGoldEl.textContent = `${playerGold} 💰`;
+                this.currentLevelEl.textContent = `Level ${currentLevel}`; 
+                this.totalPointsEl.textContent = totalPoints;
+                this.shopGoldDisplayEl.textContent = playerGold;
+                this.cosmeticsPointsDisplayEl.textContent = totalPoints;
+                this.rerollCountEl.textContent = rerollCharges; 
+                this.nextLevelDisplayEl.textContent = currentLevel + 1;
+                
+                if (gameMode === GAME_MODE.BOSS) {
+                    this.bossStatusBarEl.classList.remove('hidden');
+                    this.bossHealthEl.textContent = `${bossHealth}/${bossMaxHealth}`;
+                    const percent = (bossHealth / bossMaxHealth) * 100;
+                    this.bossHealthBarEl.style.width = `${percent}%`;
+                } else {
+                    this.bossStatusBarEl.classList.add('hidden');
+                }
+            },
+
+            showMessage(message, isEndState = false) {
+                this.messageBoxEl.innerHTML = message;
+                this.messageBoxEl.classList.remove('text-green-400', 'text-red-400', 'text-yellow-400');
+                if (isEndState) {
+                    this.messageBoxEl.classList.add(message.includes('Gewonnen') || message.includes('BOSS besiegt') ? 'text-green-400' : 'text-red-400');
+                    this.messageBoxEl.classList.add('bg-black/40');
+                } else {
+                    this.messageBoxEl.classList.add('text-yellow-400');
+                    this.messageBoxEl.classList.remove('bg-black/40');
+                }
+            },
+
+            setControls(active) {
+                this.btnHit.disabled = !active;
+                this.btnStand.disabled = !active;
+                this.btnDouble.disabled = !active || turnCount !== 0 || doubleDownUsed;
+                this.btnSplit.disabled = !active || turnCount !== 0 || playerHand.length !== 2 || playerHand[0].value !== playerHand[1].value;
+                
+                // Wenn die Preview Box offen ist, sind die Haupt-Controls gesperrt
+                const previewActive = !this.previewCardBoxEl.classList.contains('hidden');
+                if (previewActive) {
+                    this.btnHit.disabled = true;
+                    this.btnStand.disabled = true;
+                    this.btnDouble.disabled = true;
+                }
+            },
+            
+            showPreviewCard(card) {
+                const cardEl = createCardElement(card, false, -1, false);
+                this.previewCardPlaceholderEl.innerHTML = cardEl;
+                this.previewCardBoxEl.classList.remove('hidden');
+                this.setControls(false); // Haupt-Controls sperren
+            },
+
+            changeState(newState) {
+                this.mainMenuEl.classList.add('hidden');
+                this.gameplayStateEl.classList.add('hidden');
+                this.shopContainerEl.classList.add('hidden');
+                this.cosmeticsShopEl.classList.add('hidden');
+                this.gameOverOverlay.classList.add('hidden');
+                this.infoModalOverlay.classList.add('hidden');
+                this.previewCardBoxEl.classList.add('hidden'); // Immer verstecken bei State-Wechsel
+                
+                switch (newState) {
+                    case GAME_STATE.MENU:
+                        this.mainMenuEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.PLAYING:
+                        this.gameplayStateEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.SHOP:
+                        this.shopContainerEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.COSMETICS:
+                        this.cosmeticsShopEl.classList.remove('hidden');
+                        break;
+                    case GAME_STATE.GAMEOVER:
+                        this.showGameOver();
+                        break;
+                }
+                currentState = newState;
+                this.updateStatus();
+            },
+
+            showGameOver() {
+                document.getElementById('final-floor').textContent = currentLevel;
+                document.getElementById('final-gold').textContent = playerGold;
+                this.gameOverOverlay.classList.remove('hidden');
+            },
+        };
+
+        // --- SHOP FUNKTIONEN ---
         
-        const buyButton = isPassiveOwned 
-            ? `<button disabled>✅ BESITZT</button>`
-            : `<button onclick="buyItem('${name}', ${details.kosten})" ${isDisabled ? 'disabled' : ''}>Kaufen</button>`;
-
-        shopHTML += `
-            <li style="margin-bottom: 10px; border-bottom: 1px dotted #444; padding-bottom: 5px;">
-                <span class="${colorClass}">[${rarity}]</span> <strong>${name}</strong> - ${details.kosten} Gold
-                <br><em>Effekt: ${details.effekt}</em>
-                ${buyButton}
-            </li>
-        `;
-        itemIndex++;
-    }
-    shopList.innerHTML = shopHTML;
-    renderStatus();
-}
-
-function buyItem(itemName, cost) {
-    if (playerGold < cost) {
-        alert("Nicht genug Gold!");
-        return;
-    }
-
-    playerGold -= cost;
-
-    if (itemName.includes("Skin")) {
-        currentSkin = itemName.split('(')[1].replace(')', '');
-        alert(`Du hast den Skin '${currentSkin}' gekauft und ausgerüstet!`);
-    } else {
-        if (playerInventory.includes(itemName) && ["Glücks-Multiplikator", "Amulett der Erlösung"].includes(itemName)) {
-            alert("Du besitzt diesen passiven Gegenstand bereits!");
-            playerGold += cost; // Gold zurückgeben, falls Fehler
-            return;
+        // NEU: Item zufällig basierend auf Wahrscheinlichkeit auswählen
+        function getRandomItemByRarity(availableItems) {
+            const totalChance = Object.values(RARITY).reduce((sum, r) => sum + r.chance, 0);
+            let itemsWithRarity = availableItems.map(item => ({
+                ...item,
+                rarityInfo: item.rarity,
+                weight: item.rarity.chance
+            }));
+            
+            // Normiere die Gewichte, falls nicht 100
+            const totalWeight = itemsWithRarity.reduce((sum, item) => sum + item.weight, 0);
+            
+            let random = Math.random() * totalWeight;
+            let currentWeight = 0;
+            
+            for (const item of itemsWithRarity) {
+                currentWeight += item.weight;
+                if (random < currentWeight) {
+                    return item;
+                }
+            }
+            // Fallback, sollte nie passieren
+            return itemsWithRarity[0];
         }
-        playerInventory.push(itemName);
-        alert(`Du hast '${itemName}' gekauft!`);
-    }
 
-    renderShop();
-    renderStatus();
-}
+        function generateShopItems() {
+            const availableItems = SHOP_ITEMS_POOL.filter(item => !item.available || item.available());
+            currentShopItems = [];
+            
+            for (let i = 0; i < 3; i++) {
+                if (availableItems.length === 0) break;
+                
+                const selectedItem = getRandomItemByRarity(availableItems);
+                currentShopItems.push(selectedItem);
+                
+                // Entferne das Item, wenn es kein Konsumgut ist und nur einmal verfügbar sein soll
+                if (!selectedItem.isConsumable && (selectedItem.available ? !selectedItem.available() : true)) {
+                    const indexToRemove = availableItems.findIndex(item => item.id === selectedItem.id);
+                    if (indexToRemove !== -1) {
+                        availableItems.splice(indexToRemove, 1);
+                    }
+                }
+            }
+        }
+        
+        function renderShop() {
+            generateShopItems();
+            let html = '';
+            currentShopItems.forEach((item, index) => {
+                const canAfford = playerGold >= item.cost;
+                html += `
+                    <div class="flex justify-between items-center smooth-panel p-3 border-2 ${item.rarity.css}">
+                        <div>
+                            <p class="text-lg font-bold ${item.rarity.color}">${item.rarity.name}</p>
+                            <p class="text-xl font-bold text-white">${item.name}</p>
+                            <p class="text-sm text-gray-400">${item.id === 'damage_reduction' ? 'Reduziert den erlittenen Schaden.' : 'Einmaliger Effekt / Passiv.'}</p>
+                        </div>
+                        <button onclick="buyShopItem(${index})" 
+                                class="smooth-btn py-2 px-4 text-sm ${canAfford ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 cursor-not-allowed'}"
+                                ${!canAfford ? 'disabled' : ''}>
+                            ${item.cost} 💰
+                        </button>
+                    </div>
+                `;
+            });
+            ui.shopItemsEl.innerHTML = html;
+            ui.updateStatus();
+        }
 
-// --- INITIALISIERUNG ---
-window.onload = () => {
-    showMainMenu();
-};
-</script>
+        window.buyShopItem = function(index) {
+            const item = currentShopItems[index];
+            if (!item || playerGold < item.cost) {
+                showNotification("Nicht genug Gold!", 'bg-red-500');
+                return;
+            }
+            
+            playerGold -= item.cost;
+            item.effect();
+            
+            currentShopItems.splice(index, 1);
+            renderShop();
+        }
 
+        window.exitShop = function() {
+            currentLevel++;
+            ui.changeState(GAME_STATE.PLAYING);
+            startEncounter();
+        }
+
+        window.backToMenuFromShop = function() {
+            saveHighscore(); 
+            showNotification(`Run auf Level ${currentLevel} aufgegeben.`, 'bg-red-500');
+            ui.changeState(GAME_STATE.MENU);
+        }
+
+        // --- PREVIEW CARD LOGIK ---
+        
+        window.acceptPreviewCard = function() {
+            if (!isGameActive || !previewCard) return;
+            
+            ui.addCardToHand(playerHand, previewCard); // Fügt die vorgesehene Karte hinzu
+            previewCard = null; // Item ist konsumiert
+            ui.updateScoreAndControls();
+            
+            // Führt die Standard-Hit-Logik fort
+            turnCount++;
+            doubleDownUsed = true;
+            
+            setTimeout(() => {
+                const playerScore = getScore(playerHand);
+                if (playerScore > 21) {
+                    endGame("Bust nach Seherblick-Hit!", false);
+                } else if (playerScore === 21) {
+                    stand();
+                } else {
+                    ui.setControls(true);
+                }
+            }, 350); 
+            
+            ui.setControls(false); 
+        }
+
+        window.rejectPreviewCard = function() {
+            if (!isGameActive || !previewCard) return;
+            
+            // Die gezogene Karte bleibt im Deck-Top (wird im nächsten drawCard() wieder gezogen), 
+            // aber wir müssen hier eine neue Karte ziehen, um die Logik fortzusetzen.
+            // Die einfachste Lösung ist, die Preview-Karte zu verwerfen (Deck.pop() entfernt sie),
+            // und dann eine neue Karte zu ziehen (normaler Hit).
+            
+            // Die Karte von oben vom Deck verwerfen (sie war bereits rausgezogen für preview)
+            // Da previewCard aus drawCard() stammt, müssen wir sie nicht ins Deck zurücklegen, nur verwerfen.
+            
+            previewCard = null; // Item ist konsumiert
+            ui.updateScoreAndControls();
+            
+            // Führt einen normalen Hit aus (zieht eine neue Karte vom Deck)
+            hit(); 
+            showNotification("Karte abgelehnt. Neue Karte gezogen.", 'bg-red-500');
+        }
+
+        // --- Cosmetics & Modal Funktionen (Unverändert) ---
+        window.showHighscores = function() {
+            // ... (Funktion bleibt gleich)
+            ui.modalTitleEl.textContent = 'Highscores';
+            let html = highscores.map((score, index) => 
+                `<p class="font-bold">${index + 1}. Level ${score.floor} | Gold: ${score.gold} | (${score.date})</p>`
+            ).join('');
+            if (highscores.length === 0) html = '<p class="text-center text-gray-400">Noch keine Highscores vorhanden.</p>';
+            ui.modalContentEl.innerHTML = html;
+            ui.infoModalOverlay.classList.remove('hidden');
+        };
+
+        window.showAchievements = function() {
+            // ... (Funktion bleibt gleich)
+            ui.modalTitleEl.textContent = 'Achievements';
+            const achievementsStatus = JSON.parse(localStorage.getItem('achievements') || '[]');
+            
+            let html = ACHIEVEMENTS.map(a => {
+                const storedA = achievementsStatus.find(sa => sa.id === a.id) || a;
+                const statusClass = storedA.unlocked ? 'text-green-400' : 'text-gray-500';
+                const statusIcon = storedA.unlocked ? '✅' : '🔒';
+                
+                return `<div class="flex justify-between items-center p-2 border-b border-gray-700">
+                            <p class="font-bold ${statusClass}">${statusIcon} ${a.name}</p>
+                            <span class="${statusClass}">${a.points} ⭐</span>
+                        </div>`;
+            }).join('');
+            
+            ui.modalContentEl.innerHTML = html;
+            ui.infoModalOverlay.classList.remove('hidden');
+        };
+
+        window.closeModal = function() {
+            ui.infoModalOverlay.classList.add('hidden');
+        };
+
+        window.showCosmeticsShop = function() { 
+            ui.changeState(GAME_STATE.COSMETICS);
+            renderCosmeticsShop();
+        };
+
+        function renderCosmeticsShop() {
+            const container = document.getElementById('card-back-shop-items');
+            let html = '';
+            
+            CARD_BACK_SKINS.forEach(skin => {
+                const isUnlocked = unlockedSkins.includes(skin.id);
+                const isEquipped = equippedSkin === skin.id;
+                const canBuy = totalPoints >= skin.cost;
+                
+                html += `
+                    <div class="smooth-panel p-4 text-center flex flex-col items-center justify-between border-2 ${isEquipped ? 'border-purple-400' : isUnlocked ? 'border-green-400' : 'border-gray-700'}">
+                        <p class="font-bold text-lg mb-2 ${isEquipped ? 'text-purple-300' : 'text-white'}">${skin.name}</p>
+                        <div class="card card-back w-20 h-28 my-2 ${skin.cssClass} !transform-none !opacity-100">R21</div>
+                        
+                        ${isEquipped ? 
+                            `<span class="text-lg font-black text-purple-400 mt-2">AUSGERÜSTET</span>` 
+                            : isUnlocked ? 
+                                `<button onclick="equipSkin('${skin.id}')" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-full py-2 text-sm mt-2">Ausrüsten</button>` 
+                                : 
+                                `<button onclick="buySkin('${skin.id}', ${skin.cost})" 
+                                        class="smooth-btn w-full py-2 text-sm mt-2 ${canBuy ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-500 cursor-not-allowed'}" 
+                                        ${!canBuy ? 'disabled' : ''}>
+                                    Kaufen (${skin.cost} ⭐)
+                                </button>`
+                        }
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        window.buySkin = function(skinId, cost) {
+            // ... (Funktion bleibt gleich)
+            if (totalPoints < cost) {
+                showNotification("Nicht genug Punkte!", 'bg-red-500');
+                return;
+            }
+            totalPoints -= cost;
+            unlockedSkins.push(skinId);
+            localStorage.setItem('totalPoints', totalPoints.toString());
+            localStorage.setItem('unlockedSkins', JSON.stringify(unlockedSkins));
+            showNotification(`${CARD_BACK_SKINS.find(s => s.id === skinId).name} freigeschaltet!`, 'bg-green-600');
+            renderCosmeticsShop();
+        }
+
+        window.equipSkin = function(skinId) {
+            // ... (Funktion bleibt gleich)
+            equippedSkin = skinId;
+            localStorage.setItem('equippedSkin', skinId);
+            showNotification(`Neuer Kartenrücken: ${CARD_BACK_SKINS.find(s => s.id === skinId).name}!`, 'bg-purple-600');
+            renderCosmeticsShop();
+        }
+
+        // --- SPIEL-LOOP LOGIK ---
+        
+        /** Initialisiert die Daten für einen neuen Run. */
+        window.startNewRun = function() {
+            playerHealth = 100;
+            maxHealth = 100;
+            playerGold = 0;
+            currentLevel = 1;
+            goldMultiplier = 1;
+            rerollCharges = 0; 
+            bossHealth = 0; 
+            gameMode = GAME_MODE.STANDARD;
+            blackjackMultiplier = 1; // ZURÜCKSETZEN
+            hasExtraLife = false; // ZURÜCKSETZEN
+            dealerRiskLevel = 0; // ZURÜCKSETZEN
+            
+            ui.changeState(GAME_STATE.PLAYING);
+            startEncounter();
+        }
+
+        /** Setzt den Spielstand zurück und startet einen neuen Run. */
+        window.resetGame = function() {
+            ui.changeState(GAME_STATE.MENU);
+        }
+
+        /** Startet eine neue Blackjack-Runde für den aktuellen Level. */
+        window.startEncounter = function() {
+            if (playerHealth <= 0) return ui.changeState(GAME_STATE.GAMEOVER);
+
+            turnCount = 0;
+            doubleDownUsed = false;
+            previewCard = null; // ZURÜCKSETZEN
+            
+            if (currentLevel > 0 && currentLevel % 10 === 0) {
+                if (gameMode !== GAME_MODE.BOSS || bossHealth <= 0) {
+                    gameMode = GAME_MODE.BOSS;
+                    bossMaxHealth = 50 + (currentLevel / 10) * 15;
+                    bossHealth = bossMaxHealth;
+                    showNotification(`BOSS ALARM! Level ${currentLevel} - Das ist der Endgegner!`, 'bg-red-700', 5000);
+                } else {
+                    showNotification(`Runde ${currentLevel} - Kampf fortgesetzt!`, 'bg-red-500', 1000);
+                    gameMode = GAME_MODE.BOSS; 
+                }
+            } else {
+                gameMode = GAME_MODE.STANDARD;
+                bossHealth = 0; 
+            }
+
+            deck = createDeck();
+            playerHand = [];
+            dealerHand = [];
+            isGameActive = true;
+
+            ui.playerHandEl.innerHTML = '';
+            ui.dealerHandEl.innerHTML = '';
+
+
+            ui.addCardToHand(playerHand, drawCard());
+            setTimeout(() => ui.addCardToHand(dealerHand, drawCard(), true), 100);
+            setTimeout(() => ui.addCardToHand(playerHand, drawCard()), 200);
+            setTimeout(() => ui.addCardToHand(dealerHand, drawCard(), true), 300);
+
+            ui.updateStatus();
+            ui.setControls(true);
+            ui.showMessage(`Level ${currentLevel}: Mach deinen Zug! ${gameMode === GAME_MODE.BOSS ? '— BOSS FIGHT!' : ''}`);
+            
+            setTimeout(checkBlackjack, 500); 
+        }
+
+        /** Überprüft auf Blackjack zu Beginn */
+        function checkBlackjack() {
+            const playerScore = getScore(playerHand);
+            const dealerScore = getScore(dealerHand);
+
+            if (playerScore === 21) {
+                // KORRIGIERT: Blackjack Tanz Animation direkt auf die Karten
+                const cards = ui.playerHandEl.querySelectorAll('.card');
+                cards.forEach(card => card.classList.add('blackjack-dance'));
+
+                setTimeout(() => {
+                    cards.forEach(card => card.classList.remove('blackjack-dance'));
+                    ui.updateHands(true);
+                    if (dealerScore === 21) {
+                        endGame("Push! Unentschieden.", true, true);
+                    } else {
+                        endGame("BLACKJACK! Du gewinnst.", true, false, true); // Neuer Parameter: isBlackjack
+                    }
+                }, 1000);
+            } else if (dealerScore === 21) {
+                setTimeout(() => ui.updateHands(true), 300); 
+                endGame("Dealer Blackjack!", false);
+            }
+        }
+
+        /** Spieler zieht eine Karte. */
+        window.hit = function() {
+            if (!isGameActive) return;
+            turnCount++;
+            doubleDownUsed = true;
+            
+            ui.addCardToHand(playerHand, drawCard()); // Ruft updateScoreAndControls auf
+
+            setTimeout(() => {
+                const playerScore = getScore(playerHand);
+
+                if (playerScore > 21) {
+                    endGame("Bust! Du hast überkauft.", false);
+                } else if (playerScore === 21) {
+                    stand();
+                } else {
+                    ui.setControls(true);
+                }
+            }, 350); 
+            
+            ui.setControls(false);
+            ui.updateStatus();
+        }
+        
+        /** Double Down Funktion */
+        window.doubleDown = function() {
+            if (!isGameActive || turnCount !== 0 || doubleDownUsed) return;
+            
+            showNotification("DOUBLE DOWN! Nächste Karte ist deine letzte.", 'bg-yellow-600');
+            
+            turnCount++;
+            doubleDownUsed = true;
+            
+            ui.addCardToHand(playerHand, drawCard());
+            
+            setTimeout(() => {
+                if (getScore(playerHand) > 21) {
+                    endGame("Double Down Bust!", false, false, false, true); // Neuer Parameter: isDoubleDown
+                } else {
+                    stand();
+                }
+            }, 350);
+            
+            ui.setControls(false);
+            ui.updateStatus();
+        }
+        
+        /** Split Funktion (Platzhalter) */
+        window.splitHand = function() {
+            // ... (Funktion bleibt gleich)
+            if (!isGameActive || turnCount !== 0 || playerHand.length !== 2 || playerHand[0].value !== playerHand[1].value) return;
+
+            showNotification("SPLIT! Feature ist vorbereitet, aber noch nicht aktiv. Versuche es später!", 'bg-red-500', 3000);
+        }
+
+        /** Spieler bleibt stehen, Dealer ist an der Reihe. */
+        window.stand = function() {
+            if (!isGameActive) return;
+
+            ui.setControls(false);
+            ui.updateHands(true); 
+
+            let dealerInterval = setInterval(() => {
+                let dealerScore = getScore(dealerHand);
+                // NEU: Dealer Risikolevel
+                const dealerStandThreshold = (dealerRiskLevel === 1) ? 16 : 17;
+
+                if (dealerScore < dealerStandThreshold) {
+                    ui.addCardToHand(dealerHand, drawCard(), true);
+                    ui.updateHands(true);
+                } else {
+                    clearInterval(dealerInterval);
+                    evaluateResult();
+                }
+            }, 400); 
+        }
+
+        /** Auswertung des Ergebnisses nach Dealer-Zug. */
+        function evaluateResult() {
+            const dealerScore = getScore(dealerHand);
+            const playerScore = getScore(playerHand);
+            
+            if (dealerScore > 21) {
+                endGame("Dealer Bust! Du gewinnst!", true);
+            } else if (playerScore > dealerScore) {
+                endGame("Du hast gewonnen!", true);
+            } else if (playerScore < dealerScore) {
+                endGame("Der Dealer gewinnt!", false);
+            } else {
+                endGame("Push! Unentschieden.", true, true);
+            }
+        }
+
+        /** Beendet die Runde und berechnet Gewinn/Verlust. */
+        function endGame(message, playerWon, isPush = false, isBlackjack = false, isDoubleDown = false) { // ERWEITERT
+            isGameActive = false;
+            ui.setControls(false);
+
+            let goldChange = 0;
+            let baseDamage = 0;
+            let healthDamage = 0;
+            
+            if (isPush) {
+                ui.showMessage(message, true);
+                setTimeout(nextAction, 1500);
+                return; 
+            }
+            
+            if (playerWon) {
+                currentLevel++; // Level Zähler wird jetzt immer hier erhöht
+                
+                // Grund-Gold (mit Multiplikatoren)
+                let baseGold = 30;
+                if (isBlackjack) {
+                    baseGold *= 1.5 * blackjackMultiplier; // Blackjack Multiplier berücksichtigen
+                }
+                
+                goldChange = Math.floor(baseGold * goldMultiplier);
+                
+                if (isDoubleDown) {
+                    goldChange *= 2; // Double Down verdoppelt nur den Gewinn
+                    message += " (x2 Gold)";
+                }
+                
+                if (gameMode === GAME_MODE.BOSS) {
+                    const damage = getScore(playerHand);
+                    bossHealth -= damage;
+                    
+                    if (bossHealth <= 0) {
+                        message = "BOSS besiegt! Du erhältst Bonus-Gold.";
+                        goldChange += Math.floor(150 * goldMultiplier);
+                        gameMode = GAME_MODE.STANDARD; 
+                    } else {
+                        message = `BOSS Schaden: ${damage}! HP: ${bossHealth}/${bossMaxHealth}.`;
+                        goldChange += Math.floor(30 * goldMultiplier); 
+                    }
+                }
+
+                playerGold += goldChange;
+                ui.showMessage(`${message} (+${goldChange} 💰)`, true);
+
+            } else {
+                // Verlust: Schaden erleiden
+                if (gameMode === GAME_MODE.BOSS) {
+                    baseDamage = Math.floor(20 + (currentLevel / 10) * 5); 
+                } else {
+                    baseDamage = Math.floor(7 + currentLevel * 1.0);
+                }
+                
+                // Bust (egal ob normal oder DoubleDown) verursacht halben Schaden
+                if (message.includes("Bust")) baseDamage = Math.floor(baseDamage / 2);
+                
+                healthDamage = baseDamage;
+
+                playerHealth -= healthDamage;
+                
+                // NEU: Phönix-Amulett (Extra Life) Logik
+                if (playerHealth <= 0 && hasExtraLife) {
+                    playerHealth = 1;
+                    hasExtraLife = false;
+                    showNotification("Das Phönix-Amulett hat dich gerettet!", 'bg-purple-600', 3000);
+                }
+                
+                if (playerHealth <= 0) {
+                    playerHealth = 0; 
+                    ui.showMessage(`${message} (-${healthDamage} ❤️)`, true);
+                    saveHighscore(); 
+                    setTimeout(() => ui.changeState(GAME_STATE.GAMEOVER), 2000);
+                    return; 
+                }
+                
+                ui.showMessage(`${message} (-${healthDamage} ❤️)`, true);
+            }
+
+            ui.updateStatus();
+            setTimeout(nextAction, 1500);
+        }
+        
+        /** Entscheidet, was als Nächstes passiert: Shop oder neuer Encounter */
+        function nextAction() {
+            if (playerHealth <= 0) {
+                saveHighscore();
+                ui.changeState(GAME_STATE.GAMEOVER);
+                return;
+            }
+
+            if (gameMode === GAME_MODE.BOSS && bossHealth > 0) {
+                startEncounter(); 
+                return;
+            }
+            
+            if (currentLevel > 1 && (currentLevel - 1) % 3 === 0 && currentLevel % 10 !== 0) {
+                renderShop();
+                ui.changeState(GAME_STATE.SHOP);
+            } else {
+                startEncounter();
+            }
+        }
+        
+        // --- INITIALISIERUNG (Start der App) ---
+        
+        /** Startet die gesamte Anwendung. */
+        function initialize() {
+            const storedAchievements = JSON.parse(localStorage.getItem('achievements') || '[]');
+            storedAchievements.forEach(storedA => {
+                const index = ACHIEVEMENTS.findIndex(a => a.id === storedA.id);
+                if (index !== -1) {
+                    ACHIEVEMENTS[index].unlocked = storedA.unlocked;
+                }
+            });
+            
+            playerHealth = 100;
+            maxHealth = 100;
+
+            ui.updateStatus();
+            ui.changeState(GAME_STATE.MENU); 
+            
+            document.getElementById('game-over-overlay').classList.add('hidden');
+        }
+
+        // Starte die App, wenn das Dokument vollständig geladen ist
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
 </body>
 </html>

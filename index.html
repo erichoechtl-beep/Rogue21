@@ -56,14 +56,16 @@
         .smooth-btn {
             border-radius: 6px;
             font-weight: bold;
-            transition: background-color 0.2s, transform 0.1s;
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.1s; /* Verbesserte Transition */
         }
         .smooth-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Schärferer Schatten beim Hover */
         }
+        /* NEU: Verbesserte Animation beim Klicken */
         .smooth-btn:active:not(:disabled) {
-            transform: translateY(0);
+            transform: translateY(1px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
         }
         .smooth-btn:disabled {
             opacity: 0.5;
@@ -96,7 +98,6 @@
             font-weight: bold;
             vertical-align: top;
             
-            /* Neue Karten erscheinen, ohne dass die alte Hand kurz verschwindet */
             opacity: 1;
             transform: none;
             transition: transform 0.4s ease-out;
@@ -120,7 +121,6 @@
         .skin-gold { background-color: #f59e0b !important; border-color: #fbbf24 !important; }
         .skin-cyber { background-color: #111827 !important; border-color: #3b82f6 !important; color: #a5f3fc !important; }
         .skin-crimson { background-color: #991b1b !important; border-color: #ef4444 !important; }
-        /* NEU: Popkultur Skins */
         .skin-matrix { background-color: #0d120a !important; border-color: #4ade80 !important; color: #4ade80 !important; font-family: monospace !important; }
         .skin-balatro { background-image: linear-gradient(135deg, #a78bfa, #8b5cf6) !important; border-color: #c4b5fd !important; }
 
@@ -171,6 +171,44 @@
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
+        
+        /* Tooltip Style (für Phönix Amulett) */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip {
+            visibility: hidden;
+            width: 250px;
+            background-color: #1f2937;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%; /* Platzierung oben */
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            border: 1px solid #9333ea;
+        }
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #9333ea transparent transparent transparent;
+        }
     </style>
 </head>
 <body class="text-white">
@@ -205,6 +243,7 @@
         
         <div id="main-menu" class="flex-grow flex flex-col justify-center items-center space-y-6">
             <h1 class="text-6xl font-black text-yellow-400 drop-shadow-lg">Rogue 21</h1>
+            
             <button onclick="startNewRun()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white w-64 py-4 text-xl">Neuer Run</button>
             <button onclick="showCosmeticsShop()" class="smooth-btn bg-purple-600 hover:bg-purple-700 text-white w-64 py-4 text-xl">Skins & Punkte (<span id="total-points">0</span> ⭐)</button>
             <button onclick="showHighscores()" class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white w-64 py-4 text-xl">Highscores</button>
@@ -233,8 +272,17 @@
                 <button id="btn-split" onclick="splitHand()" class="smooth-btn bg-blue-500 hover:bg-blue-600 w-32 py-3 text-lg hidden" disabled>Split</button>
             </div>
             
+            <div class="flex justify-center pt-2">
+                <button id="btn-use-preview" onclick="showPreviewUI()" class="smooth-btn bg-yellow-700 hover:bg-yellow-600 text-white py-2 px-4 text-sm hidden">
+                    Seherblick (<span id="preview-charge-count">0</span>)
+                </button>
+            </div>
+            
             <div id="preview-card-box" class="smooth-panel p-2 flex justify-between items-center mt-2 hidden">
-                <span class="font-bold text-gray-300">Nächste Karte: <span id="preview-card-placeholder">...</span></span>
+                <span class="font-bold text-gray-300 flex items-center">
+                    Nächste Karte: 
+                    <span id="preview-card-placeholder" class="ml-2">...</span>
+                </span>
                 <div class="space-x-2">
                     <button id="btn-accept-preview" onclick="acceptPreviewCard()" class="smooth-btn bg-green-600 hover:bg-green-700 text-white py-1 px-3 text-sm">Nehmen</button>
                     <button id="btn-reject-preview" onclick="rejectPreviewCard()" class="smooth-btn bg-red-600 hover:bg-red-700 text-white py-1 px-3 text-sm">Ablehnen</button>
@@ -249,6 +297,10 @@
                 <div class="flex justify-between items-center text-xl font-bold p-2 bg-gray-800 rounded">
                     <span>Dein Gold:</span>
                     <span id="shop-gold-display" class="text-yellow-400">0 💰</span>
+                    <button onclick="rerollShopItems()" 
+                            class="smooth-btn bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 text-sm">
+                        Neu Würfeln (10 💰)
+                    </button>
                 </div>
                 
                 <h3 class="text-xl font-bold text-gray-300 pt-2 border-t border-gray-600">Items (Wähle 3, mit Seltenheit)</h3>
@@ -327,9 +379,10 @@
         let goldMultiplier = 1;
         let rerollCharges = 0; 
         let doubleDownUsed = false;
-        let blackjackMultiplier = 1; // NEU: Für Rare Item
-        let hasExtraLife = false; // NEU: Für Epic Item
-        let dealerRiskLevel = 0; // NEU: Für Legendary Item (0=Standard, 1=Riskant)
+        let blackjackMultiplier = 1; 
+        let hasExtraLife = false; 
+        let dealerRiskLevel = 0; 
+        let previewCharges = 0; // NEU: Seherblick Charges
 
         // BOSS Status
         let gameMode = GAME_MODE.STANDARD;
@@ -337,7 +390,8 @@
         let bossMaxHealth = 0;
         
         // Preview Karte
-        let previewCard = null; // NEU: Speichert die Karte, die der Spieler sehen kann
+        let previewCard = null; // Speichert die Karte, die der Spieler sehen kann
+        let isPreviewing = false; // Zustand, ob die Preview-Box offen ist
 
         // Cosmetics/Progression
         let totalPoints = parseInt(localStorage.getItem('totalPoints') || '0', 10);
@@ -377,11 +431,11 @@
             { id: 'damage_reduction', name: 'Schadensresistenz', cost: 70, rarity: RARITY.UNCOMMON, effect: () => { playerHealth += 5; ui.updateStatus(); showNotification("Schadensresistenz erworben.", 'bg-blue-500'); } },
 
             // Selten (RARE)
-            { id: 'preview_card', name: 'Seherblick', cost: 50, rarity: RARITY.RARE, effect: () => { 
-                showNotification("Seherblick aktiviert! Benutze ihn im nächsten Zug.", 'bg-yellow-600'); 
-                previewCard = drawCard();
-                ui.showPreviewCard(previewCard); 
-            }, available: () => !previewCard, isConsumable: true }, // Einmalige Nutzung pro Kauf
+            { id: 'preview_card', name: 'Seherblick Charge (+1)', cost: 50, rarity: RARITY.RARE, effect: () => { 
+                previewCharges += 1;
+                ui.updateStatus();
+                showNotification("Seherblick Charge erhalten!", 'bg-yellow-600'); 
+            }, available: () => true, isConsumable: true }, // Charge kaufen
             { id: 'blackjack_multiplier_rare', name: 'Glücks-Multiplikator (x1.5)', cost: 120, rarity: RARITY.RARE, effect: () => { 
                 blackjackMultiplier = 1.5; 
                 showNotification("Blackjack Auszahlung x1.5!", 'bg-yellow-600'); 
@@ -410,8 +464,8 @@
         const CARD_BACK_SKINS = [
             { id: 'default', name: 'Standard (Lila)', cost: 0, cssClass: 'skin-default' },
             { id: 'gold', name: 'Gold Rush', cost: 100, cssClass: 'skin-gold' },
-            { id: 'matrix', name: 'The Matrix (Code)', cost: 200, cssClass: 'skin-matrix' }, // NEU
-            { id: 'balatro', name: 'Balatro Style', cost: 300, cssClass: 'skin-balatro' }, // NEU
+            { id: 'matrix', name: 'The Matrix (Code)', cost: 200, cssClass: 'skin-matrix' }, 
+            { id: 'balatro', name: 'Balatro Style', cost: 300, cssClass: 'skin-balatro' }, 
             { id: 'cyber', name: 'Cyber Grid', cost: 250, cssClass: 'skin-cyber' },
             { id: 'crimson', name: 'Crimson Edge', cost: 500, cssClass: 'skin-crimson' }
         ];
@@ -590,8 +644,10 @@
             bossStatusBarEl: document.getElementById('boss-status-bar'),
             bossHealthEl: document.getElementById('boss-health'),
             bossHealthBarEl: document.getElementById('boss-health-bar'),
-            previewCardBoxEl: document.getElementById('preview-card-box'), // NEU
-            previewCardPlaceholderEl: document.getElementById('preview-card-placeholder'), // NEU
+            previewCardBoxEl: document.getElementById('preview-card-box'), 
+            previewCardPlaceholderEl: document.getElementById('preview-card-placeholder'), 
+            btnUsePreviewEl: document.getElementById('btn-use-preview'), // NEU
+            previewChargeCountEl: document.getElementById('preview-charge-count'), // NEU
 
 
             mainMenuEl: document.getElementById('main-menu'),
@@ -646,27 +702,47 @@
                 }
                 
                 // Kontrollen nach Zug aktualisieren
-                this.btnDouble.disabled = turnCount !== 0 || doubleDownUsed;
+                // KORRIGIERT: Double Down ist nur im ersten Zug und nur einmal pro Runde möglich
+                this.btnDouble.disabled = turnCount !== 0 || doubleDownUsed || playerScore > 21; 
                 this.btnSplit.classList.toggle('hidden', turnCount !== 0 || playerHand.length !== 2 || playerHand[0].value !== playerHand[1].value);
                 
                 // NEU: Double Button Tooltip
                 document.getElementById('double-tooltip').textContent = doubleDownUsed ? 'Verbraucht' : 'Verdoppelt Goldgewinn';
+                
+                // NEU: Seherblick Button
+                this.btnUsePreviewEl.classList.toggle('hidden', previewCharges === 0 || isPreviewing);
+                this.previewChargeCountEl.textContent = previewCharges;
+
 
                 if (playerScore > 21) {
                     this.setControls(false);
                 }
                 
-                // NEU: Preview Card Handling
-                if (previewCard) {
-                    this.previewCardBoxEl.classList.remove('hidden');
-                } else {
-                    this.previewCardBoxEl.classList.add('hidden');
+                // Wenn im Preview-Zustand, Haupt-Controls sperren
+                if (isPreviewing) {
+                    this.setControls(false);
+                } else if (isGameActive) {
+                    this.setControls(true);
                 }
             },
 
 
             updateStatus() {
-                this.playerHealthEl.textContent = `${playerHealth}/${maxHealth} ❤️`;
+                // NEU: Phönix Amulett Tooltip Hinzugefügt
+                let healthText = `${playerHealth}/${maxHealth} ❤️`;
+                if (hasExtraLife) {
+                    healthText = `
+                        <div class="tooltip-container">
+                            <span class="text-red-400 font-black text-xl">${playerHealth}/${maxHealth} ❤️ (⭐)</span>
+                            <span class="tooltip text-sm">Phönix-Amulett aktiv: Verhindert einmal den Tod!</span>
+                        </div>
+                    `;
+                } else {
+                     healthText = `<span class="text-red-400 font-black text-xl">${playerHealth}/${maxHealth} ❤️</span>`;
+                }
+                this.playerHealthEl.innerHTML = healthText;
+
+
                 this.playerGoldEl.textContent = `${playerGold} 💰`;
                 this.currentLevelEl.textContent = `Level ${currentLevel}`; 
                 this.totalPointsEl.textContent = totalPoints;
@@ -674,6 +750,7 @@
                 this.cosmeticsPointsDisplayEl.textContent = totalPoints;
                 this.rerollCountEl.textContent = rerollCharges; 
                 this.nextLevelDisplayEl.textContent = currentLevel + 1;
+                this.previewChargeCountEl.textContent = previewCharges;
                 
                 if (gameMode === GAME_MODE.BOSS) {
                     this.bossStatusBarEl.classList.remove('hidden');
@@ -689,34 +766,53 @@
                 this.messageBoxEl.innerHTML = message;
                 this.messageBoxEl.classList.remove('text-green-400', 'text-red-400', 'text-yellow-400');
                 if (isEndState) {
-                    this.messageBoxEl.classList.add(message.includes('Gewonnen') || message.includes('BOSS besiegt') ? 'text-green-400' : 'text-red-400');
-                    this.messageBoxEl.classList.add('bg-black/40');
+                    // KORRIGIERT: Gewinnmeldungen jetzt mit dunklerem, auffälligerem Grün
+                    if (message.includes('Gewonnen') || message.includes('BLACKJACK') || message.includes('BOSS besiegt')) {
+                         this.messageBoxEl.classList.add('text-lime-300', 'bg-green-900/40');
+                    } else {
+                         this.messageBoxEl.classList.add('text-red-400', 'bg-black/40');
+                    }
                 } else {
                     this.messageBoxEl.classList.add('text-yellow-400');
-                    this.messageBoxEl.classList.remove('bg-black/40');
+                    this.messageBoxEl.classList.remove('bg-black/40', 'bg-green-900/40');
                 }
             },
 
             setControls(active) {
                 this.btnHit.disabled = !active;
                 this.btnStand.disabled = !active;
-                this.btnDouble.disabled = !active || turnCount !== 0 || doubleDownUsed;
+                this.btnDouble.disabled = !active || turnCount !== 0 || doubleDownUsed || getScore(playerHand) > 21;
                 this.btnSplit.disabled = !active || turnCount !== 0 || playerHand.length !== 2 || playerHand[0].value !== playerHand[1].value;
                 
-                // Wenn die Preview Box offen ist, sind die Haupt-Controls gesperrt
-                const previewActive = !this.previewCardBoxEl.classList.contains('hidden');
-                if (previewActive) {
+                // Seherblick Button wird nur gezeigt, wenn isPreviewing FALSE ist
+                this.btnUsePreviewEl.disabled = !active || isPreviewing;
+                this.btnUsePreviewEl.classList.toggle('hidden', previewCharges === 0);
+
+                // Wenn im Preview-Zustand, Haupt-Controls sperren
+                if (isPreviewing) {
                     this.btnHit.disabled = true;
                     this.btnStand.disabled = true;
                     this.btnDouble.disabled = true;
                 }
             },
             
-            showPreviewCard(card) {
+            showPreviewUI(card) {
+                // Diese Funktion wird jetzt von showPreviewUI() in der Logik aufgerufen
                 const cardEl = createCardElement(card, false, -1, false);
                 this.previewCardPlaceholderEl.innerHTML = cardEl;
                 this.previewCardBoxEl.classList.remove('hidden');
                 this.setControls(false); // Haupt-Controls sperren
+                isPreviewing = true;
+                this.btnUsePreviewEl.classList.add('hidden'); // Verstecke den Seherblick Button
+            },
+
+            hidePreviewUI() {
+                this.previewCardBoxEl.classList.add('hidden');
+                this.previewCardPlaceholderEl.innerHTML = '...';
+                isPreviewing = false;
+                if (isGameActive) {
+                    this.setControls(true);
+                }
             },
 
             changeState(newState) {
@@ -727,6 +823,10 @@
                 this.gameOverOverlay.classList.add('hidden');
                 this.infoModalOverlay.classList.add('hidden');
                 this.previewCardBoxEl.classList.add('hidden'); // Immer verstecken bei State-Wechsel
+                
+                // NEU: Seherblick Button muss bei State Wechsel auch versteckt werden
+                this.btnUsePreviewEl.classList.add('hidden');
+                isPreviewing = false;
                 
                 switch (newState) {
                     case GAME_STATE.MENU:
@@ -758,47 +858,59 @@
 
         // --- SHOP FUNKTIONEN ---
         
-        // NEU: Item zufällig basierend auf Wahrscheinlichkeit auswählen
-        function getRandomItemByRarity(availableItems) {
-            const totalChance = Object.values(RARITY).reduce((sum, r) => sum + r.chance, 0);
-            let itemsWithRarity = availableItems.map(item => ({
-                ...item,
-                rarityInfo: item.rarity,
-                weight: item.rarity.chance
-            }));
+        /** NEU: Reroll Shop Items Funktion */
+        window.rerollShopItems = function() {
+            const REROLL_COST = 10;
+            if (playerGold < REROLL_COST) {
+                showNotification("Nicht genug Gold für Reroll (10 💰)!", 'bg-red-500');
+                return;
+            }
+            playerGold -= REROLL_COST;
+            showNotification("Shop neu ausgewürfelt!", 'bg-blue-500');
+            renderShop();
+        }
+
+        /** Item zufällig basierend auf Wahrscheinlichkeit auswählen */
+        function getRandomItemByRarity() {
+            const availableItems = SHOP_ITEMS_POOL.filter(item => !item.available || item.available());
             
-            // Normiere die Gewichte, falls nicht 100
-            const totalWeight = itemsWithRarity.reduce((sum, item) => sum + item.weight, 0);
+            let totalChance = 0;
+            const itemsWithWeights = availableItems.map(item => {
+                const weight = item.rarity.chance;
+                totalChance += weight;
+                return { item, weight };
+            });
+
+            if (totalChance === 0) return null;
             
-            let random = Math.random() * totalWeight;
+            let random = Math.random() * totalChance;
             let currentWeight = 0;
             
-            for (const item of itemsWithRarity) {
-                currentWeight += item.weight;
+            for (const { item, weight } of itemsWithWeights) {
+                currentWeight += weight;
                 if (random < currentWeight) {
                     return item;
                 }
             }
-            // Fallback, sollte nie passieren
-            return itemsWithRarity[0];
+            // Fallback
+            return availableItems[0];
         }
 
         function generateShopItems() {
-            const availableItems = SHOP_ITEMS_POOL.filter(item => !item.available || item.available());
             currentShopItems = [];
+            let availableItems = SHOP_ITEMS_POOL.filter(item => !item.available || item.available());
             
             for (let i = 0; i < 3; i++) {
                 if (availableItems.length === 0) break;
                 
-                const selectedItem = getRandomItemByRarity(availableItems);
+                const selectedItem = getRandomItemByRarity();
+                if (!selectedItem) break;
+                
                 currentShopItems.push(selectedItem);
                 
-                // Entferne das Item, wenn es kein Konsumgut ist und nur einmal verfügbar sein soll
-                if (!selectedItem.isConsumable && (selectedItem.available ? !selectedItem.available() : true)) {
-                    const indexToRemove = availableItems.findIndex(item => item.id === selectedItem.id);
-                    if (indexToRemove !== -1) {
-                        availableItems.splice(indexToRemove, 1);
-                    }
+                // Entferne das Item, wenn es kein Konsumgut (isConsumable: true) ist
+                if (!selectedItem.isConsumable) {
+                    availableItems = availableItems.filter(item => item.id !== selectedItem.id);
                 }
             }
         }
@@ -808,12 +920,17 @@
             let html = '';
             currentShopItems.forEach((item, index) => {
                 const canAfford = playerGold >= item.cost;
+                
+                let description = 'Einmaliger Effekt / Passiv.';
+                if (item.id === 'damage_reduction') description = 'Reduziert den erlittenen Schaden.';
+                if (item.id === 'extra_life_epic') description = 'Verhindert einmal den Tod bei 0 HP.'; // NEU: Klare Erklärung
+
                 html += `
                     <div class="flex justify-between items-center smooth-panel p-3 border-2 ${item.rarity.css}">
                         <div>
                             <p class="text-lg font-bold ${item.rarity.color}">${item.rarity.name}</p>
                             <p class="text-xl font-bold text-white">${item.name}</p>
-                            <p class="text-sm text-gray-400">${item.id === 'damage_reduction' ? 'Reduziert den erlittenen Schaden.' : 'Einmaliger Effekt / Passiv.'}</p>
+                            <p class="text-sm text-gray-400">${description}</p>
                         </div>
                         <button onclick="buyShopItem(${index})" 
                                 class="smooth-btn py-2 px-4 text-sm ${canAfford ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 cursor-not-allowed'}"
@@ -837,8 +954,12 @@
             playerGold -= item.cost;
             item.effect();
             
-            currentShopItems.splice(index, 1);
-            renderShop();
+            // Konsumgüter verschwinden nach Kauf, Passiv-Upgrades bleiben in der Liste (bis Reroll)
+            if (item.isConsumable || !item.available || item.available()) {
+                 currentShopItems.splice(index, 1);
+            }
+            
+            renderShop(); // Shop neu rendern, um gekaufte Items zu entfernen
         }
 
         window.exitShop = function() {
@@ -855,17 +976,29 @@
 
         // --- PREVIEW CARD LOGIK ---
         
+        /** NEU: Zeigt die Preview-UI an und zieht die Karte vom Deck. */
+        window.showPreviewUI = function() {
+             if (!isGameActive || previewCharges <= 0 || isPreviewing) return;
+
+            previewCharges -= 1;
+            previewCard = drawCard(); // Karte ziehen und speichern
+            
+            ui.showPreviewUI(previewCard);
+            ui.updateStatus();
+        }
+        
+        /** Spieler nimmt die Preview-Karte */
         window.acceptPreviewCard = function() {
             if (!isGameActive || !previewCard) return;
             
-            ui.addCardToHand(playerHand, previewCard); // Fügt die vorgesehene Karte hinzu
-            previewCard = null; // Item ist konsumiert
-            ui.updateScoreAndControls();
+            ui.hidePreviewUI(); 
             
-            // Führt die Standard-Hit-Logik fort
+            ui.addCardToHand(playerHand, previewCard);
+            previewCard = null; 
+            
             turnCount++;
-            doubleDownUsed = true;
-            
+            doubleDownUsed = true; // Ein Hit zählt immer als Zug
+
             setTimeout(() => {
                 const playerScore = getScore(playerHand);
                 if (playerScore > 21) {
@@ -876,30 +1009,29 @@
                     ui.setControls(true);
                 }
             }, 350); 
-            
-            ui.setControls(false); 
         }
 
+        /** Spieler lehnt die Preview-Karte ab (sie wird verworfen) */
         window.rejectPreviewCard = function() {
             if (!isGameActive || !previewCard) return;
             
-            // Die gezogene Karte bleibt im Deck-Top (wird im nächsten drawCard() wieder gezogen), 
-            // aber wir müssen hier eine neue Karte ziehen, um die Logik fortzusetzen.
-            // Die einfachste Lösung ist, die Preview-Karte zu verwerfen (Deck.pop() entfernt sie),
-            // und dann eine neue Karte zu ziehen (normaler Hit).
+            previewCard = null; // Karte wird verworfen
+            ui.hidePreviewUI();
+            showNotification("Karte abgelehnt. Zug beendet.", 'bg-red-500');
+
+            // Da der Spieler die Karte ablehnt, gilt das als sein Zug
+            turnCount++;
             
-            // Die Karte von oben vom Deck verwerfen (sie war bereits rausgezogen für preview)
-            // Da previewCard aus drawCard() stammt, müssen wir sie nicht ins Deck zurücklegen, nur verwerfen.
-            
-            previewCard = null; // Item ist konsumiert
-            ui.updateScoreAndControls();
-            
-            // Führt einen normalen Hit aus (zieht eine neue Karte vom Deck)
-            hit(); 
-            showNotification("Karte abgelehnt. Neue Karte gezogen.", 'bg-red-500');
+            if (getScore(playerHand) > 21) {
+                 endGame("Bust nach Ablehnung!", false); // Sollte nicht passieren, aber zur Sicherheit
+            } else if (getScore(playerHand) === 21) {
+                stand();
+            } else {
+                ui.setControls(true);
+            }
         }
 
-        // --- Cosmetics & Modal Funktionen (Unverändert) ---
+        // --- Cosmetics & Modal Funktionen ---
         window.showHighscores = function() {
             // ... (Funktion bleibt gleich)
             ui.modalTitleEl.textContent = 'Highscores';
@@ -940,6 +1072,7 @@
             renderCosmeticsShop();
         };
 
+        // KORRIGIERT: Layout und Funktionalität des Cosmetics Shops
         function renderCosmeticsShop() {
             const container = document.getElementById('card-back-shop-items');
             let html = '';
@@ -952,7 +1085,7 @@
                 html += `
                     <div class="smooth-panel p-4 text-center flex flex-col items-center justify-between border-2 ${isEquipped ? 'border-purple-400' : isUnlocked ? 'border-green-400' : 'border-gray-700'}">
                         <p class="font-bold text-lg mb-2 ${isEquipped ? 'text-purple-300' : 'text-white'}">${skin.name}</p>
-                        <div class="card card-back w-20 h-28 my-2 ${skin.cssClass} !transform-none !opacity-100">R21</div>
+                        <div class="card card-back w-20 h-28 my-2 ${skin.cssClass} !transform-none !opacity-100 cursor-pointer" onclick="${isUnlocked ? `equipSkin('${skin.id}')` : ''}">R21</div>
                         
                         ${isEquipped ? 
                             `<span class="text-lg font-black text-purple-400 mt-2">AUSGERÜSTET</span>` 
@@ -1005,9 +1138,10 @@
             rerollCharges = 0; 
             bossHealth = 0; 
             gameMode = GAME_MODE.STANDARD;
-            blackjackMultiplier = 1; // ZURÜCKSETZEN
-            hasExtraLife = false; // ZURÜCKSETZEN
-            dealerRiskLevel = 0; // ZURÜCKSETZEN
+            blackjackMultiplier = 1; 
+            hasExtraLife = false; 
+            dealerRiskLevel = 0; 
+            previewCharges = 0; // ZURÜCKSETZEN
             
             ui.changeState(GAME_STATE.PLAYING);
             startEncounter();
@@ -1024,7 +1158,8 @@
 
             turnCount = 0;
             doubleDownUsed = false;
-            previewCard = null; // ZURÜCKSETZEN
+            previewCard = null; 
+            isPreviewing = false;
             
             if (currentLevel > 0 && currentLevel % 10 === 0) {
                 if (gameMode !== GAME_MODE.BOSS || bossHealth <= 0) {
@@ -1064,11 +1199,12 @@
 
         /** Überprüft auf Blackjack zu Beginn */
         function checkBlackjack() {
+            // ... (Funktion bleibt gleich)
             const playerScore = getScore(playerHand);
             const dealerScore = getScore(dealerHand);
 
             if (playerScore === 21) {
-                // KORRIGIERT: Blackjack Tanz Animation direkt auf die Karten
+                // Blackjack Tanz Animation direkt auf die Karten
                 const cards = ui.playerHandEl.querySelectorAll('.card');
                 cards.forEach(card => card.classList.add('blackjack-dance'));
 
@@ -1078,7 +1214,7 @@
                     if (dealerScore === 21) {
                         endGame("Push! Unentschieden.", true, true);
                     } else {
-                        endGame("BLACKJACK! Du gewinnst.", true, false, true); // Neuer Parameter: isBlackjack
+                        endGame("BLACKJACK! Du gewinnst.", true, false, true); // isBlackjack
                     }
                 }, 1000);
             } else if (dealerScore === 21) {
@@ -1091,9 +1227,12 @@
         window.hit = function() {
             if (!isGameActive) return;
             turnCount++;
-            doubleDownUsed = true;
             
-            ui.addCardToHand(playerHand, drawCard()); // Ruft updateScoreAndControls auf
+            // NEU/KORRIGIERT: DoubleDown wird hier NICHT auf true gesetzt. 
+            // DoubleDown ist nur ein spezifischer Zug, kein genereller Zustand nach dem ersten Hit.
+            // doubleDownUsed wird erst bei doubleDown() auf true gesetzt.
+
+            ui.addCardToHand(playerHand, drawCard()); 
 
             setTimeout(() => {
                 const playerScore = getScore(playerHand);
@@ -1111,20 +1250,22 @@
             ui.updateStatus();
         }
         
-        /** Double Down Funktion */
+        /** KORRIGIERT: Double Down Funktion */
         window.doubleDown = function() {
-            if (!isGameActive || turnCount !== 0 || doubleDownUsed) return;
+            // Prüfung: nur im ersten Zug (turnCount === 0), nicht bereits verwendet
+            if (!isGameActive || turnCount !== 0 || doubleDownUsed || getScore(playerHand) > 21) return;
             
             showNotification("DOUBLE DOWN! Nächste Karte ist deine letzte.", 'bg-yellow-600');
             
             turnCount++;
-            doubleDownUsed = true;
-            
+            doubleDownUsed = true; // ZWINGEND auf true setzen
+
             ui.addCardToHand(playerHand, drawCard());
             
             setTimeout(() => {
+                // Nach dem Ziehen der Double-Karte ist die Runde beendet, egal ob Bust oder nicht.
                 if (getScore(playerHand) > 21) {
-                    endGame("Double Down Bust!", false, false, false, true); // Neuer Parameter: isDoubleDown
+                    endGame("Double Down Bust!", false, false, false, true); // isDoubleDown = true
                 } else {
                     stand();
                 }
@@ -1151,7 +1292,7 @@
 
             let dealerInterval = setInterval(() => {
                 let dealerScore = getScore(dealerHand);
-                // NEU: Dealer Risikolevel
+                // NEU: Dealer Risikolevel (16 bei Risiko, 17 Standard)
                 const dealerStandThreshold = (dealerRiskLevel === 1) ? 16 : 17;
 
                 if (dealerScore < dealerStandThreshold) {
@@ -1169,6 +1310,12 @@
             const dealerScore = getScore(dealerHand);
             const playerScore = getScore(playerHand);
             
+            // Check if player busted during his turn (should be handled by hit/doubleDown, but safety check)
+            if (playerScore > 21) {
+                 endGame("Bust! Du hast überkauft.", false);
+                 return;
+            }
+            
             if (dealerScore > 21) {
                 endGame("Dealer Bust! Du gewinnst!", true);
             } else if (playerScore > dealerScore) {
@@ -1181,7 +1328,7 @@
         }
 
         /** Beendet die Runde und berechnet Gewinn/Verlust. */
-        function endGame(message, playerWon, isPush = false, isBlackjack = false, isDoubleDown = false) { // ERWEITERT
+        function endGame(message, playerWon, isPush = false, isBlackjack = false, isDoubleDown = false) { 
             isGameActive = false;
             ui.setControls(false);
 
@@ -1200,14 +1347,15 @@
                 
                 // Grund-Gold (mit Multiplikatoren)
                 let baseGold = 30;
+                
                 if (isBlackjack) {
-                    baseGold *= 1.5 * blackjackMultiplier; // Blackjack Multiplier berücksichtigen
+                    baseGold *= 1.5 * blackjackMultiplier; 
                 }
                 
                 goldChange = Math.floor(baseGold * goldMultiplier);
                 
                 if (isDoubleDown) {
-                    goldChange *= 2; // Double Down verdoppelt nur den Gewinn
+                    goldChange *= 2; // Double Down verdoppelt den Gewinn
                     message += " (x2 Gold)";
                 }
                 
@@ -1243,7 +1391,7 @@
 
                 playerHealth -= healthDamage;
                 
-                // NEU: Phönix-Amulett (Extra Life) Logik
+                // Phönix-Amulett (Extra Life) Logik
                 if (playerHealth <= 0 && hasExtraLife) {
                     playerHealth = 1;
                     hasExtraLife = false;
@@ -1278,6 +1426,7 @@
                 return;
             }
             
+            // Level nach dem Sieg erhöht
             if (currentLevel > 1 && (currentLevel - 1) % 3 === 0 && currentLevel % 10 !== 0) {
                 renderShop();
                 ui.changeState(GAME_STATE.SHOP);
@@ -1290,6 +1439,7 @@
         
         /** Startet die gesamte Anwendung. */
         function initialize() {
+            // ... (Funktion bleibt gleich)
             const storedAchievements = JSON.parse(localStorage.getItem('achievements') || '[]');
             storedAchievements.forEach(storedA => {
                 const index = ACHIEVEMENTS.findIndex(a => a.id === storedA.id);

@@ -1,395 +1,615 @@
-import random
-import time
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Rogue21 - Blackjack mit Upgrades</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #1a1a1a; color: #f0f0f0; margin: 20px; }
+        .container { max-width: 800px; margin: auto; background-color: #2c2c2c; padding: 20px; border-radius: 10px; }
+        h1, h2 { color: #ffd700; border-bottom: 2px solid #555; padding-bottom: 5px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+        .card { display: inline-block; padding: 10px; margin: 5px; border: 1px solid #777; border-radius: 5px; background-color: white; color: black; font-weight: bold; }
+        .status, .output { margin-top: 15px; padding: 10px; border: 1px dashed #666; }
+        
+        /* Seltenheits-Farben für Shop */
+        .Gewöhnlich { color: #2ecc71; } /* Grün */
+        .Ungewöhnlich { color: #3498db; } /* Blau */
+        .Selten { color: #f1c40f; } /* Gelb/Gold */
+        .Episch { color: #9b59b6; } /* Lila */
+        .Legendär { color: #e67e22; } /* Orange */
 
-# --- Spielkonstanten und Globale Variablen ---
-SPIELNAME = "Rogue21"
-MAX_GOLD = 999
-WETT_MIN = 10
-WETT_MAX = 100
+        /* Blackjack Animation */
+        .blackjack-animation { 
+            color: #ff4500; 
+            font-size: 24px; 
+            font-weight: bold; 
+            text-align: center;
+            border: 4px double #ff4500;
+            padding: 10px;
+            margin: 10px 0;
+            animation: pulse 1s infinite alternate; 
+        }
+        @keyframes pulse {
+            from { transform: scale(1); box-shadow: 0 0 10px #ff4500; }
+            to { transform: scale(1.05); box-shadow: 0 0 20px #ff4500; }
+        }
+    </style>
+</head>
+<body>
 
-# Seltenheitskategorien (Farbe, Name, Chance (als Dezimalwert))
-SELTENHEITEN = {
-    'Gewöhnlich': {'farbe': '🟢', 'chance': 0.50},
-    'Ungewöhnlich': {'farbe': '🔵', 'chance': 0.30},
-    'Selten': {'farbe': '🟡', 'chance': 0.15},
-    'Episch': {'farbe': '🟣', 'chance': 0.04},
-    'Legendär': {'farbe': '🟠', 'chance': 0.01}
+<div class="container">
+    <h1>🃏 Rogue21</h1>
+    <div class="status" id="status-display"></div>
+    
+    <div id="main-menu">
+        <h2>Hauptmenü</h2>
+        <button onclick="startGame()">▶️ Spielen</button>
+        <button onclick="showShop()">🛒 Shop</button>
+        <button onclick="document.getElementById('main-menu').style.display='none'; document.getElementById('game-area').style.display='none'; alert('Spiel beendet!');">🚪 Beenden</button>
+    </div>
+
+    <div id="game-setup" style="display: none;">
+        <h2>Wette setzen</h2>
+        <input type="number" id="bet-input" value="10" min="10" max="100">
+        <button onclick="startRound()">Wette Bestätigen</button>
+        <button onclick="showMainMenu()">Zurück</button>
+        <p id="bet-message"></p>
+    </div>
+
+    <div id="game-area" style="display: none;">
+        <div id="dealer-hand"></div>
+        <div id="player-hands"></div>
+        <div class="output" id="game-output"></div>
+
+        <h2>Aktionen</h2>
+        <button id="hit-btn" onclick="hit()">➕ Hit (Karte ziehen)</button>
+        <button id="stand-btn" onclick="stand()">🛑 Stand (Stehenbleiben)</button>
+        <button id="double-btn" onclick="doubleDown()">💰 Double Down (Verdoppelt Goldgewinn diese Runde)</button>
+        <button id="split-btn" onclick="split()">✂️ Split (Teilen)</button>
+        <button id="token-btn" onclick="useToken()" style="display:none;">🔮 Voraussicht-Token</button>
+        
+        <button onclick="endTurn()" style="display: none;" id="continue-btn">➡️ Weiter zur Auswertung</button>
+    </div>
+
+    <div id="shop-area" style="display: none;">
+        <h2>🛒 Rogue21 Shop</h2>
+        <ul id="shop-list" style="list-style: none; padding: 0;">
+            </ul>
+        <button onclick="showMainMenu()">Zurück zum Menü</button>
+    </div>
+</div>
+
+<script>
+// --- SPIELKONSTANTEN UND GLOBALE ZUSTÄNDE ---
+const SPIELNAME = "Rogue21";
+const WETT_MIN = 10;
+const WETT_MAX = 100;
+
+let playerGold = 100;
+let playerHP = 3;
+let playerInventory = [];
+let currentSkin = "Standard";
+let deck = [];
+
+let playerHands = []; // Struktur: [{cards: [], bet: 0, status: 'playing'}, ...]
+let dealerHand = [];
+let currentHandIndex = 0;
+let dealerRisk = false; // Für "Händler-Provokation"
+
+// Seltenheiten für den Shop (Farbe ist der CSS-Klassenname)
+const SELTENHEITEN = {
+    'Gewöhnlich': { klasse: 'Gewöhnlich', chance: 0.50 },
+    'Ungewöhnlich': { klasse: 'Ungewöhnlich', chance: 0.30 },
+    'Selten': { klasse: 'Selten', chance: 0.15 },
+    'Episch': { klasse: 'Episch', chance: 0.04 },
+    'Legendär': { klasse: 'Legendär', chance: 0.01 }
+};
+
+// Shop-Gegenstände
+const SHOP_GEGENSTAENDE = {
+    "Rogue-Skin (Keanu)": { kosten: 100, effekt: "Visuell", seltenheit: "Gewöhnlich" },
+    "Rogue-Skin (Terminator)": { kosten: 150, effekt: "Visuell", seltenheit: "Ungewöhnlich" },
+    "Glücks-Multiplikator": { kosten: 180, effekt: "Blackjack: 2:1 (Passiv)", seltenheit: "Selten" },
+    "Amulett der Erlösung": { kosten: 350, effekt: "Verhindert einmalig 0 HP (Passiv)", seltenheit: "Episch" },
+    "Voraussicht-Token": { kosten: 50, effekt: "Nächste Karte sehen und entscheiden (einmalig)", seltenheit: "Gewöhnlich" },
+    "Händler-Provokation": { kosten: 400, effekt: "Dealer spielt risikoreicher (einmalig)", seltenheit: "Legendär" }
+};
+
+// --- HILFSFUNKTIONEN ---
+
+function getCardValue(card) {
+    const rank = card.split('')[0]; // Z.B. 'A', '10', 'K'
+    if (['K', 'D', 'B'].includes(rank) || rank.length > 1) return 10;
+    if (rank === 'A') return 11;
+    return parseInt(rank);
 }
 
-# Shop-Gegenstände mit Seltenheit und Kosten
-SHOP_GEGENSTAENDE = {
-    "Rogue-Skin (Keanu)": {"kosten": 100, "effekt": "Visuell", "seltenheit": "Gewöhnlich"},
-    "Rogue-Skin (Terminator)": {"kosten": 150, "effekt": "Visuell", "seltenheit": "Ungewöhnlich"},
-    "Kartenzähler": {"kosten": 200, "effekt": "Zeigt nächste Karte des Decks (einmalig)", "seltenheit": "Selten"},
-    "Glücks-Multiplikator": {"kosten": 180, "effekt": "Erhöht Blackjack-Auszahlung auf 2:1 (Passiv)", "seltenheit": "Selten"},
-    "Amulett der Erlösung": {"kosten": 350, "effekt": "Verhindert einmalig den Tod bei 0 HP (Passiv)", "seltenheit": "Episch"},
-    "Voraussicht-Token": {"kosten": 50, "effekt": "Nächste Karte sehen und entscheiden (einmalig)", "seltenheit": "Gewöhnlich"},
-    "Händler-Provokation": {"kosten": 400, "effekt": "Dealer spielt risikoreicher (einmalig)", "seltenheit": "Legendär"}
+function calculateHandValue(hand) {
+    let value = 0;
+    let aces = 0;
+    hand.forEach(card => {
+        value += getCardValue(card);
+        if (card.startsWith('A')) aces++;
+    });
+
+    while (value > 21 && aces > 0) {
+        value -= 10;
+        aces--;
+    }
+    return value;
 }
 
-# Spieler-Status
-spieler_gold = 100
-spieler_hp = 3
-spieler_inventar = []
-aktueller_skin = "Standard"
+function createDeck() {
+    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'B', 'D', 'K'];
+    const suits = ['♥', '♦', '♣', '♠'];
+    let newDeck = [];
+    for (let i = 0; i < 4; i++) { // 4 Decks
+        suits.forEach(suit => {
+            ranks.forEach(rank => {
+                newDeck.push(rank + suit);
+            });
+        });
+    }
+    // Mischen (Fisher-Yates)
+    for (let i = newDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+    }
+    return newDeck;
+}
 
-def karte_ziehen(deck):
-    """Zieht eine Karte vom Deck."""
-    return deck.pop()
+function drawCard() {
+    return deck.pop();
+}
 
-def kartenwert_berechnen(hand):
-    """Berechnet den Punktewert einer Hand."""
-    wert = 0
-    anzahl_asse = 0
-    for karte in hand:
-        if karte[0] in ['K', 'D', 'B', '10']:
-            wert += 10
-        elif karte[0] == 'A':
-            wert += 11
-            anzahl_asse += 1
-        else:
-            wert += int(karte[0])
+// --- DISPLAY FUNKTIONEN ---
+
+function renderStatus() {
+    const passivEffects = [];
+    if (playerInventory.includes("Glücks-Multiplikator")) passivEffects.push("Blackjack: 2:1");
+    if (playerInventory.includes("Amulett der Erlösung")) passivEffects.push("Todesverhinderung");
     
-    # Korrektur für Asse (von 11 auf 1 reduzieren, wenn über 21)
-    while wert > 21 and anzahl_asse > 0:
-        wert -= 10
-        anzahl_asse -= 1
-    return wert
+    const inventoryList = playerInventory
+        .filter(item => !["Glücks-Multiplikator", "Amulett der Erlösung"].includes(item))
+        .join(', ');
 
-def deck_mischen():
-    """Erstellt und mischt ein neues Deck."""
-    werte = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'B', 'D', 'K']
-    farben = ['♥', '♦', '♣', '♠']
-    deck = [(wert, farbe) for wert in werte for farbe in farben] * 4 # 4 Decks
-    random.shuffle(deck)
-    return deck
+    document.getElementById('status-display').innerHTML = `
+        <h2>Spielerstatus</h2>
+        <p>💰 Gold: ${playerGold}</p>
+        <p>❤️ HP: ${playerHP}</p>
+        <p>🎭 Skin: ${currentSkin}</p>
+        <p>🎒 Inventar: ${inventoryList || 'Leer'}</p>
+        <p>✨ Passiv: ${passivEffects.join(', ') || 'Keine'}</p>
+    `;
+}
 
-def anzeigen_hand(hand, verdeckt=False, titel=""):
-    """Zeigt die Kartenhand an."""
-    karten_str = []
-    for i, karte in enumerate(hand):
-        if verdeckt and i == 1: # Zweite Karte des Dealers verbergen
-            karten_str.append("[???]")
-        else:
-            karten_str.append(f"[{karte[0]}{karte[1]}]")
-    
-    wert = kartenwert_berechnen(hand) if not verdeckt or len(hand) == 1 else "?"
-    print(f"\n--- {titel} (Wert: {wert}) ---")
-    print(" ".join(karten_str))
-    print("----------------------------")
+function renderHands() {
+    let dealerHTML = `<h2>Dealer (Wert: ${dealerHand.length > 0 && playerHands.length > 0 && playerHands[currentHandIndex].status === 'playing' ? '?' : calculateHandValue(dealerHand)})</h2>`;
+    dealerHand.forEach((card, index) => {
+        if (index === 1 && playerHands.length > 0 && playerHands[currentHandIndex].status === 'playing') {
+            dealerHTML += `<span class="card">[???]</span>`;
+        } else {
+            dealerHTML += `<span class="card">${card}</span>`;
+        }
+    });
+    document.getElementById('dealer-hand').innerHTML = dealerHTML;
 
-def print_status():
-    """Zeigt den aktuellen Status des Spielers."""
-    global spieler_gold, spieler_hp, aktueller_skin
-    print(f"\n======================================")
-    print(f" {SPIELNAME} - Spielerstatus")
-    print(f"======================================")
-    print(f" 💰 Gold: {spieler_gold}")
-    print(f" ❤️ HP: {spieler_hp}")
-    print(f" 🎭 Skin: {aktueller_skin}")
-    if spieler_inventar:
-        inventar_liste = ", ".join([item for item in spieler_inventar if item not in ["Glücks-Multiplikator", "Amulett der Erlösung"]])
-        passiv_effekte = []
-        if "Glücks-Multiplikator" in spieler_inventar:
-            passiv_effekte.append("Blackjack: 2:1")
-        if "Amulett der Erlösung" in spieler_inventar:
-            passiv_effekte.append("Todesverhinderung")
+    let playerHTML = '<h2>Deine Hände</h2>';
+    playerHands.forEach((hand, index) => {
+        const activeClass = index === currentHandIndex && hand.status === 'playing' ? 'style="border: 3px solid #ffd700;"' : '';
+        const handValue = calculateHandValue(hand.cards);
         
-        print(f" 🎒 Inventar: {inventar_liste}")
-        if passiv_effekte:
-            print(f" ✨ Passiv: {', '.join(passiv_effekte)}")
-    else:
-        print(" 🎒 Inventar: Leer")
-    print(f"======================================")
+        playerHTML += `<div class="hand" ${activeClass}>`;
+        playerHTML += `<h4>Hand ${index + 1} (Wette: ${hand.bet} Gold, Wert: ${handValue}) - Status: ${hand.status.toUpperCase()}</h4>`;
+        hand.cards.forEach(card => {
+            playerHTML += `<span class="card">${card}</span>`;
+        });
+        playerHTML += `</div>`;
+    });
+    document.getElementById('player-hands').innerHTML = playerHTML;
+}
 
-# --- NEUE FUNKTIONEN ---
+function updateGameOutput(message, isBlackjack = false) {
+    const outputDiv = document.getElementById('game-output');
+    if (isBlackjack) {
+        outputDiv.innerHTML += `<div class="blackjack-animation">💥 BLACKJACK!!! 🎊🎉 WIRKLICH COOL! 🎉🎊</div>`;
+    } else {
+        outputDiv.innerHTML += `<p>${message}</p>`;
+    }
+    outputDiv.scrollTop = outputDiv.scrollHeight;
+}
 
-def shop_oeffnen():
-    """Implementiert den Shop mit seltenen Gegenständen."""
-    global spieler_gold, spieler_inventar, aktueller_skin
+function enableActions(enable) {
+    document.getElementById('hit-btn').disabled = !enable;
+    document.getElementById('stand-btn').disabled = !enable;
+    
+    // Double Down nur bei 2 Karten und genug Gold
+    const currentHand = playerHands[currentHandIndex];
+    const canDouble = enable && currentHand && currentHand.cards.length === 2 && playerGold >= currentHand.bet;
+    document.getElementById('double-btn').disabled = !canDouble;
+    document.getElementById('double-btn').textContent = canDouble 
+        ? `💰 Double Down (Verdoppelt Goldgewinn diese Runde - Kostet ${currentHand.bet} Gold)` 
+        : '💰 Double Down';
 
-    def karte_ziehen_mit_seltenheit(gegenstand):
-        """Wählt eine Seltenheit basierend auf den Chancen und gibt die entsprechende Farbe zurück."""
-        seltenheit = gegenstand['seltenheit']
-        return SELTENHEITEN[seltenheit]['farbe']
+    // Split nur bei 2 gleichen Karten und genug Gold
+    const canSplit = enable && currentHand && currentHand.cards.length === 2 && getCardValue(currentHand.cards[0]) === getCardValue(currentHand.cards[1]) && playerGold >= currentHand.bet;
+    document.getElementById('split-btn').disabled = !canSplit;
 
-    while True:
-        print("\n" + "="*40)
-        print(f"| {SPIELNAME} - DER VERSTECKTE HÄNDLER |")
-        print("="*40)
-        print(f"| Dein Gold: {spieler_gold} Gold")
-        print("-" * 40)
+    // Token nur, wenn im Inventar
+    const tokenBtn = document.getElementById('token-btn');
+    const canUseToken = enable && playerInventory.includes("Voraussicht-Token");
+    tokenBtn.style.display = canUseToken ? 'inline-block' : 'none';
+}
+
+function showMainMenu() {
+    document.getElementById('main-menu').style.display = 'block';
+    document.getElementById('game-setup').style.display = 'none';
+    document.getElementById('game-area').style.display = 'none';
+    document.getElementById('shop-area').style.display = 'none';
+    renderStatus();
+}
+
+// --- SPIEL LOGIK ---
+
+function startGame() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-setup').style.display = 'block';
+    document.getElementById('game-area').style.display = 'none';
+    document.getElementById('bet-input').max = Math.min(WETT_MAX, playerGold);
+    document.getElementById('bet-message').textContent = `Wähle eine Wette zwischen ${WETT_MIN} und ${Math.min(WETT_MAX, playerGold)} Gold.`;
+    renderStatus();
+}
+
+function startRound() {
+    const betInput = document.getElementById('bet-input');
+    let bet = parseInt(betInput.value);
+
+    if (isNaN(bet) || bet < WETT_MIN || bet > WETT_MAX || bet > playerGold) {
+        alert(`Ungültige Wette! Min: ${WETT_MIN}, Max: ${WETT_MAX}, Dein Gold: ${playerGold}`);
+        return;
+    }
+
+    // Zustand zurücksetzen
+    deck = createDeck();
+    dealerHand = [];
+    playerHands = [];
+    currentHandIndex = 0;
+    document.getElementById('game-output').innerHTML = '';
+    dealerRisk = playerInventory.includes("Händler-Provokation");
+
+    // Karten austeilen
+    playerHands.push({ cards: [drawCard(), drawCard()], bet: bet, status: 'playing' });
+    dealerHand = [drawCard(), drawCard()];
+    playerGold -= bet;
+
+    // UI Wechsel
+    document.getElementById('game-setup').style.display = 'none';
+    document.getElementById('game-area').style.display = 'block';
+    document.getElementById('continue-btn').style.display = 'none';
+    
+    // Blackjack Prüfung
+    const playerValue = calculateHandValue(playerHands[0].cards);
+    const dealerValue = calculateHandValue(dealerHand);
+
+    renderHands();
+    
+    if (playerValue === 21) {
+        updateGameOutput("Spieler hat Blackjack!", true);
+        enableActions(false);
+        setTimeout(endTurn, 3000); // 3 Sekunden warten für Animation
+    } else {
+        updateGameOutput(`Starte Runde. Deine Wette: ${bet} Gold.`);
+        enableActions(true);
+    }
+    renderStatus();
+}
+
+// --- SPIELER AKTIONEN ---
+
+function hit() {
+    const currentHand = playerHands[currentHandIndex];
+    if (currentHand.status !== 'playing') return;
+
+    currentHand.cards.push(drawCard());
+    updateGameOutput(`Du ziehst eine Karte für Hand ${currentHandIndex + 1}.`);
+    
+    const value = calculateHandValue(currentHand.cards);
+    renderHands();
+
+    if (value > 21) {
+        currentHand.status = 'busted';
+        updateGameOutput(`Hand ${currentHandIndex + 1} ist überkauft (Bust: ${value}).`);
+        nextHandOrEndTurn();
+    } else if (value === 21) {
+        currentHand.status = 'stand';
+        updateGameOutput(`Hand ${currentHandIndex + 1} hat 21 Punkte.`);
+        nextHandOrEndTurn();
+    } else {
+        enableActions(true);
+    }
+}
+
+function stand() {
+    const currentHand = playerHands[currentHandIndex];
+    if (currentHand.status !== 'playing') return;
+
+    currentHand.status = 'stand';
+    updateGameOutput(`Du bleibst stehen bei Hand ${currentHandIndex + 1}.`);
+    nextHandOrEndTurn();
+}
+
+function doubleDown() {
+    const currentHand = playerHands[currentHandIndex];
+    if (currentHand.status !== 'playing' || currentHand.cards.length !== 2 || playerGold < currentHand.bet) return;
+
+    // Einsatz verdoppeln und Gold abziehen
+    playerGold -= currentHand.bet;
+    currentHand.bet *= 2;
+    
+    // Nur eine Karte ziehen
+    currentHand.cards.push(drawCard());
+    updateGameOutput(`🚀 Double Down! Neuer Einsatz: ${currentHand.bet} Gold. Nur eine Karte gezogen.`);
+    
+    const value = calculateHandValue(currentHand.cards);
+    renderHands();
+
+    if (value > 21) {
+        currentHand.status = 'busted';
+        updateGameOutput(`Hand ${currentHandIndex + 1} ist überkauft (Bust: ${value}).`);
+    } else {
+        currentHand.status = 'stand';
+    }
+    nextHandOrEndTurn();
+}
+
+function split() {
+    const currentHand = playerHands[currentHandIndex];
+    if (currentHand.status !== 'playing' || currentHand.cards.length !== 2 || getCardValue(currentHand.cards[0]) !== getCardValue(currentHand.cards[1]) || playerGold < currentHand.bet) return;
+    
+    const originalBet = currentHand.bet;
+    playerGold -= originalBet; // Zusätzlichen Einsatz abziehen
+    
+    const card1 = currentHand.cards[0];
+    const card2 = currentHand.cards[1];
+
+    // Neue Hände erstellen und erste Karte ziehen
+    const newHand1 = { cards: [card1, drawCard()], bet: originalBet, status: 'playing' };
+    const newHand2 = { cards: [card2, drawCard()], bet: originalBet, status: 'playing' };
+
+    // Aktuelle Hand ersetzen und neue Hand hinzufügen
+    playerHands.splice(currentHandIndex, 1, newHand1, newHand2);
+    updateGameOutput("✂️ Split! Die Hand wurde in zwei getrennte Hände aufgeteilt.");
+
+    // Sonderregel für Asse: sofortiger Stand nach dem Split
+    if (card1.startsWith('A')) {
+        newHand1.status = 'stand';
+        newHand2.status = 'stand';
+        updateGameOutput("♠️ Asse geteilt! Nur eine Karte pro Hand. Stehenbleiben erzwungen.");
+    }
+
+    renderHands();
+    nextHandOrEndTurn(true); // Mit True wird Hand 1 direkt gestartet (da Hand 0 ersetzt wurde)
+}
+
+function useToken() {
+    if (!playerInventory.includes("Voraussicht-Token")) return;
+
+    const nextCard = deck[deck.length - 1];
+    const userChoice = confirm(`🔮 Die nächste Karte im Deck ist: [${nextCard}]. Möchtest du diese Karte ziehen?`);
+    
+    playerInventory.splice(playerInventory.indexOf("Voraussicht-Token"), 1);
+    updateGameOutput(`Token verbraucht.`);
+    
+    if (userChoice) {
+        hit(); // Ruft hit() auf, das die Karte zieht und die Runde weiterführt
+    } else {
+        updateGameOutput("Du hast dich entschieden, die Karte nicht zu ziehen. Spiele weiter.");
+        renderStatus();
+    }
+    // Nach Nutzung Token-Button ausblenden
+    document.getElementById('token-btn').style.display = 'none';
+}
+
+
+function nextHandOrEndTurn(isSplit = false) {
+    if (isSplit) {
+        // Bei Split bleiben wir bei der aktuellen Index-Position, um die erste neue Hand zu spielen
+        // Außer bei Assen, dann geht's weiter.
+    } else {
+        currentHandIndex++;
+    }
+
+    while (currentHandIndex < playerHands.length && playerHands[currentHandIndex].status !== 'playing') {
+        currentHandIndex++; // Springe zu 'playing' Hand
+    }
+
+    if (currentHandIndex < playerHands.length) {
+        // Nächste Hand spielen
+        updateGameOutput(`--- Nächste Hand: Hand ${currentHandIndex + 1} ---`);
+        renderHands();
+        enableActions(true);
+    } else {
+        // Alle Spielerhände fertig
+        enableActions(false);
+        document.getElementById('continue-btn').style.display = 'block';
+        updateGameOutput("Alle deine Hände sind gespielt. Dealer ist an der Reihe.");
+    }
+}
+
+
+// --- DEALER LOGIK UND AUSWERTUNG ---
+
+function endTurn() {
+    enableActions(false);
+    document.getElementById('continue-btn').style.display = 'none';
+
+    // 1. Dealer spielt
+    let dealerValue = calculateHandValue(dealerHand);
+    let minDealerValue = dealerRisk ? 16 : 17; // Händler-Provokation ändert die Regel
+
+    updateGameOutput(`\n--- Dealer spielt (Minimum: ${minDealerValue}) ---`);
+    renderHands();
+
+    // Remove one-time dealer-risk item
+    if (dealerRisk && playerInventory.includes("Händler-Provokation")) {
+        playerInventory.splice(playerInventory.indexOf("Händler-Provokation"), 1);
+        renderStatus();
+    }
+    
+    while (dealerValue < minDealerValue) {
+        const newCard = drawCard();
+        dealerHand.push(newCard);
+        dealerValue = calculateHandValue(dealerHand);
+        updateGameOutput(`Dealer zieht: [${newCard}]. Wert: ${dealerValue}`);
+        renderHands(); // Update nach jedem Zug
+    }
+
+    if (dealerValue > 21) {
+        updateGameOutput("Dealer Bust! Alle verbleibenden Spielerhände gewinnen.");
+    } else {
+        updateGameOutput(`Dealer bleibt bei ${dealerValue}.`);
+    }
+    
+    // 2. Auswertung
+    updateGameOutput("\n--- Auswertung aller Hände ---");
+    
+    let totalWin = 0;
+    
+    playerHands.forEach((hand, index) => {
+        const playerValue = calculateHandValue(hand.cards);
+        let message = `Hand ${index + 1} (Wert: ${playerValue}, Wette: ${hand.bet}): `;
         
-        i = 1
-        shop_liste = list(SHOP_GEGENSTAENDE.items())
-        for name, details in shop_liste:
-            farbe = karte_ziehen_mit_seltenheit(details)
-            print(f"| {i}. {farbe} {name} ({details['seltenheit']}) - {details['kosten']} Gold")
-            print(f"|    Effekt: {details['effekt']}")
-            i += 1
-        
-        print("-" * 40)
-        print("| K. Kaufen | Z. Zurück")
-        print("=" * 40)
-
-        wahl = input("Was möchtest du tun? (1-{}) / K / Z: ".format(len(shop_liste))).upper()
-
-        if wahl == 'Z':
-            break
-        elif wahl == 'K':
-            item_nummer = input("Welche Nummer möchtest du kaufen? ")
-            try:
-                item_nummer = int(item_nummer)
-                if 1 <= item_nummer <= len(shop_liste):
-                    name, details = shop_liste[item_nummer - 1]
-                    kosten = details['kosten']
-                    
-                    if name in spieler_inventar and details['effekt'] in ["Passiv", "Todesverhinderung"]:
-                        print("Du besitzt diesen passiven Gegenstand bereits!")
-                        continue
-                    
-                    if spieler_gold >= kosten:
-                        spieler_gold -= kosten
-                        
-                        if "Skin" in name:
-                            aktueller_skin = name.split('(')[1].replace(')', '')
-                            print(f"✅ Du hast den Skin '{aktueller_skin}' gekauft und ausgerüstet!")
-                        elif details['effekt'] in ["Passiv", "Todesverhinderung"]:
-                            spieler_inventar.append(name)
-                            print(f"✅ Du hast '{name}' gekauft und es ist nun passiv aktiv!")
-                        else:
-                            spieler_inventar.append(name)
-                            print(f"✅ Du hast '{name}' für dein Inventar gekauft!")
-                        
-                        time.sleep(1)
-                    else:
-                        print("❌ Nicht genug Gold!")
-                else:
-                    print("Ungültige Nummer.")
-            except ValueError:
-                print("Ungültige Eingabe.")
-        else:
-            print("Ungültige Auswahl.")
-
-# --- Hauptlogik für das Spiel ---
-
-def spielrunde():
-    """Führt eine einzelne Runde Blackjack durch."""
-    global spieler_gold, spieler_hp, spieler_inventar
-    deck = deck_mischen()
-    
-    print_status()
-
-    # Wette setzen
-    while True:
-        try:
-            wette = int(input(f"Setze deine Wette ({WETT_MIN}-{WETT_MAX} Gold): "))
-            if WETT_MIN <= wette <= WETT_MAX and wette <= spieler_gold:
-                break
-            elif wette > spieler_gold:
-                print("❌ Du kannst nicht mehr wetten, als du hast!")
-            else:
-                print(f"❌ Die Wette muss zwischen {WETT_MIN} und {WETT_MAX} liegen.")
-        except ValueError:
-            print("❌ Ungültige Eingabe. Bitte gib eine Zahl ein.")
-    
-    # Hände austeilen
-    spieler_hand = [karte_ziehen(deck), karte_ziehen(deck)]
-    dealer_hand = [karte_ziehen(deck), karte_ziehen(deck)]
-    
-    # Spieleinstellungen aus Inventar prüfen
-    dealer_risiko = "Händler-Provokation" in spieler_inventar
-    if dealer_risiko:
-        spieler_inventar.remove("Händler-Provokation")
-        print("\n🔥 Händler-Provokation aktiv! Der Dealer wird risikoreicher spielen.")
-        time.sleep(1)
-        
-    # Blackjack-Prüfung nach Austeilen
-    spieler_wert = kartenwert_berechnen(spieler_hand)
-    dealer_wert = kartenwert_berechnen(dealer_hand)
-    
-    # Sofortige Blackjack-Animation
-    if spieler_wert == 21:
-        print("\n" + "#" * 50)
-        print("####### 💥 BLACKJACK!!! 💥 #######")
-        print("####### 🎊🎉 WIRKLICH COOL! 🎉🎊 #######")
-        print("#" * 50 + "\n")
-        time.sleep(2)
-        
-    if spieler_wert == 21 and dealer_wert != 21:
-        auszahlung = 2 if "Glücks-Multiplikator" in spieler_inventar else 1.5
-        gewinn = int(wette * auszahlung)
-        spieler_gold += gewinn
-        print(f"🎉 BLACKJACK! Du gewinnst {gewinn} Gold! (Auszahlung {auszahlung}:1)")
-        return
-    elif spieler_wert == 21 and dealer_wert == 21:
-        print("🤝 Push! Unentschieden bei Blackjack. Einsatz zurück.")
-        return
-    
-    # Spielerzug
-    haende_zu_spielen = [(spieler_hand, wette)] # (Hand, Wette)
-    neue_haende = []
-    
-    for hand_index, (hand, hand_wette) in enumerate(haende_zu_spielen):
-        print(f"\n--- HAND {hand_index + 1} START (Wette: {hand_wette} Gold) ---")
-        
-        while True:
-            anzeigen_hand(hand, titel=f"Deine Hand {hand_index + 1}")
-            anzeigen_hand(dealer_hand, verdeckt=True, titel="Dealer")
+        if (playerValue > 21) {
+            message += "Verloren (Bust).";
+            totalWin -= hand.bet;
+        } else if (dealerValue > 21 || playerValue > dealerValue) {
+            let winAmount = hand.bet;
             
-            wert = kartenwert_berechnen(hand)
-            if wert > 21:
-                print("💥 Bust! Überkauft.")
-                spieler_gold -= hand_wette
-                break
-            
-            aktionen = ["H. Hit (Karte ziehen)", "S. Stand (Stehenbleiben)"]
-            
-            # Double Down Option
-            if len(hand) == 2 and spieler_gold >= hand_wette:
-                aktionen.append(f"D. Double Down (Verdoppelt Goldgewinn diese Runde - Kostet {hand_wette} Gold)")
-            
-            # Split Option
-            if len(hand) == 2 and hand[0][0] == hand[1][0] and spieler_gold >= hand_wette:
-                aktionen.append(f"P. Split (Teilen)")
+            // Blackjack Auszahlung (falls 2 Karten und 21, und Dealer kein Blackjack hat)
+            if (playerValue === 21 && hand.cards.length === 2 && dealerValue !== 21) {
+                const bjMultiplier = playerInventory.includes("Glücks-Multiplikator") ? 2 : 1.5;
+                winAmount = hand.bet * bjMultiplier;
+                message += `🎉 Blackjack! Gewinn (${bjMultiplier}:1): ${winAmount} Gold.`;
+            } else {
+                message += `Gewonnen! Gewinn (1:1): ${winAmount} Gold.`;
+            }
+            totalWin += winAmount;
+        } else if (playerValue === dealerValue) {
+            message += "Unentschieden (Push). Einsatz zurück.";
+            playerGold += hand.bet; // Einsatz zurückgeben
+        } else {
+            message += "Verloren.";
+            totalWin -= hand.bet;
+        }
+        updateGameOutput(message);
+    });
 
-            # Voraussicht-Token Option
-            if "Voraussicht-Token" in spieler_inventar:
-                aktionen.append("V. Voraussicht-Token nutzen (Nächste Karte sehen)")
+    // 3. Gold aktualisieren
+    playerGold += totalWin;
 
-            print("\nOptionen: " + " | ".join(aktionen))
-            wahl = input("Deine Wahl: ").upper()
-            
-            if wahl == 'H':
-                hand.append(karte_ziehen(deck))
-            elif wahl == 'S':
-                neue_haende.append((hand, hand_wette))
-                break
-            elif wahl == 'D' and len(hand) == 2 and spieler_gold >= hand_wette:
-                hand_wette *= 2
-                hand.append(karte_ziehen(deck))
-                spieler_gold -= hand_wette / 2 # Abzug des verdoppelten Einsatzes
-                neue_haende.append((hand, hand_wette))
-                print(f"🚀 Double Down! Neuer Einsatz: {hand_wette} Gold. Letzte Karte gezogen.")
-                break
-            elif wahl == 'P' and len(hand) == 2 and hand[0][0] == hand[1][0] and spieler_gold >= hand_wette:
-                neue_hand1 = [hand[0], karte_ziehen(deck)]
-                neue_hand2 = [hand[1], karte_ziehen(deck)]
-                
-                # Wenn Asse geteilt werden, darf man nur eine Karte ziehen (Regel)
-                if hand[0][0] == 'A':
-                    print("♠️ Asse geteilt! Nur eine Karte pro Hand erlaubt.")
-                    neue_haende.extend([(neue_hand1, hand_wette), (neue_hand2, hand_wette)])
-                    spieler_gold -= hand_wette # Abzug für den Split-Einsatz
-                    break
-                
-                haende_zu_spielen.extend([(neue_hand1, hand_wette), (neue_hand2, hand_wette)])
-                spieler_gold -= hand_wette # Abzug für den Split-Einsatz
-                print("✂️ Split! Zwei neue Hände werden gespielt.")
-                break
-            elif wahl == 'V' and "Voraussicht-Token" in spieler_inventar:
-                naechste_karte = deck[-1] # Nächste Karte sehen, ohne sie zu ziehen
-                print(f"🔮 Die nächste Karte im Deck ist: [{naechste_karte[0]}{naechste_karte[1]}]")
-                nutzen = input("Möchtest du diese Karte ziehen (J/N)? ").upper()
-                spieler_inventar.remove("Voraussicht-Token")
-                
-                if nutzen == 'J':
-                    hand.append(karte_ziehen(deck))
-                    print("Du hast die Karte gezogen!")
-                else:
-                    print("Du hast dich entschieden, diese Karte nicht zu ziehen.")
-                
-            else:
-                print("❌ Ungültige Aktion oder Option nicht verfügbar.")
-
-    # Dealer-Zug, falls der Spieler noch im Spiel ist
-    dealer_spielt = any(kartenwert_berechnen(h) <= 21 for h, w in neue_haende)
-    if dealer_spielt:
-        print("\n--- Dealer spielt ---")
-        anzeigen_hand(dealer_hand, verdeckt=False, titel="Dealer")
-
-        # Dealer-Regel: Ziehen bis mindestens 17. Bei Risiko (Provokation) bis 16.
-        min_dealer_wert = 17
-        if dealer_risiko:
-            min_dealer_wert = 16
-            
-        while kartenwert_berechnen(dealer_hand) < min_dealer_wert:
-            time.sleep(1)
-            neue_karte = karte_ziehen(deck)
-            dealer_hand.append(neue_karte)
-            print(f"Dealer zieht: [{neue_karte[0]}{neue_karte[1]}]")
-            anzeigen_hand(dealer_hand, verdeckt=False, titel="Dealer")
+    // 4. HP-Regelung
+    if (playerGold <= 0) {
+        playerHP -= 1;
+        updateGameOutput(`\n⚠️ Du hast dein Gold verloren und verlierst 1 HP. Aktuelle HP: ${playerHP}`);
         
-        dealer_wert = kartenwert_berechnen(dealer_hand)
-        if dealer_wert > 21:
-            print("Dealer Bust! Alle verbleibenden Spielerhände gewinnen.")
-        else:
-            print(f"Dealer bleibt bei {dealer_wert}.")
-
-    # Auswertung aller gespielten Hände
-    print("\n--- Auswertung ---")
-    dealer_wert = kartenwert_berechnen(dealer_hand)
+        // Amulett der Erlösung prüfen
+        if (playerHP <= 0 && playerInventory.includes("Amulett der Erlösung")) {
+            playerHP = 1;
+            playerInventory.splice(playerInventory.indexOf("Amulett der Erlösung"), 1);
+            updateGameOutput("✨ Amulett der Erlösung aktiviert! Dein Tod wurde verhindert. Das Amulett ist nun verbraucht.");
+        }
+        
+        // Neues Startgold
+        if (playerGold <= 0 && playerHP > 0) {
+            playerGold = 50;
+            updateGameOutput("Neues Startkapital von 50 Gold erhalten.");
+        }
+    }
     
-    for hand, wette in neue_haende:
-        spieler_wert = kartenwert_berechnen(hand)
-        print(f"Hand (Wert: {spieler_wert}, Wette: {wette}): ", end="")
+    if (playerHP <= 0) {
+        document.getElementById('game-area').style.display='none';
+        alert(`--- GAME OVER --- Dein Abenteuer endet hier. Letztes Gold: ${playerGold}`);
+        showMainMenu();
+    } else {
+        // Zurück zum Spiel-Setup
+        setTimeout(startGame, 5000); 
+    }
+    renderStatus();
+}
 
-        if spieler_wert > 21:
-            print("Verloren (Bust).")
-            spieler_gold -= wette
-        elif dealer_wert > 21 or spieler_wert > dealer_wert:
-            print(f"Gewonnen! Gewinn: {wette} Gold.")
-            spieler_gold += wette
-        elif spieler_wert == dealer_wert:
-            print("Unentschieden (Push). Einsatz zurück.")
-        else:
-            print("Verloren.")
-            spieler_gold -= wette
+// --- SHOP LOGIK ---
 
-    # HP-Regelung am Ende der Runde
-    if spieler_gold <= 0:
-        spieler_hp -= 1
-        print(f"\n⚠️ Du hast dein Gold verloren und verlierst 1 HP. Aktuelle HP: {spieler_hp}")
+function showShop() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-setup').style.display = 'none';
+    document.getElementById('game-area').style.display = 'none';
+    document.getElementById('shop-area').style.display = 'block';
+    renderShop();
+}
+
+function renderShop() {
+    let shopHTML = '';
+    const shopList = document.getElementById('shop-list');
+    let itemIndex = 1;
+
+    for (const name in SHOP_GEGENSTAENDE) {
+        const details = SHOP_GEGENSTAENDE[name];
+        const rarity = details.seltenheit;
+        const colorClass = SELTENHEITEN[rarity].klasse;
+        const isDisabled = playerGold < details.kosten;
+
+        // Prüfen, ob passiver Gegenstand bereits im Inventar ist
+        const isPassiveOwned = ["Glücks-Multiplikator", "Amulett der Erlösung"].includes(name) && playerInventory.includes(name);
         
-        # Amulett der Erlösung prüfen
-        if spieler_hp <= 0 and "Amulett der Erlösung" in spieler_inventar:
-            spieler_hp = 1
-            spieler_inventar.remove("Amulett der Erlösung")
-            print("✨ Amulett der Erlösung aktiviert! Dein Tod wurde verhindert. Das Amulett ist nun verbraucht.")
-        
-        # Falls kein Gold mehr da ist, aber noch HP, wird Startgold gesetzt
-        if spieler_gold <= 0 and spieler_hp > 0:
-            spieler_gold = 50
-            print("Neues Startkapital von 50 Gold erhalten.")
+        const buyButton = isPassiveOwned 
+            ? `<button disabled>✅ BESITZT</button>`
+            : `<button onclick="buyItem('${name}', ${details.kosten})" ${isDisabled ? 'disabled' : ''}>Kaufen</button>`;
 
-def main():
-    """Hauptfunktion des Spiels."""
-    print(f"Willkommen bei {SPIELNAME}!")
-    
-    global spieler_hp
+        shopHTML += `
+            <li style="margin-bottom: 10px; border-bottom: 1px dotted #444; padding-bottom: 5px;">
+                <span class="${colorClass}">[${rarity}]</span> <strong>${name}</strong> - ${details.kosten} Gold
+                <br><em>Effekt: ${details.effekt}</em>
+                ${buyButton}
+            </li>
+        `;
+        itemIndex++;
+    }
+    shopList.innerHTML = shopHTML;
+    renderStatus();
+}
 
-    while spieler_hp > 0:
-        print_status()
-        
-        print("\nWas möchtest du tun?")
-        print("S. Spielen (Starte eine Runde Blackjack)")
-        print("K. Shop (Kaufe Upgrades)")
-        print("B. Beenden")
-        
-        wahl = input("Deine Wahl: ").upper()
-        
-        if wahl == 'S':
-            spielrunde()
-        elif wahl == 'K':
-            shop_oeffnen()
-        elif wahl == 'B':
-            break
-        else:
-            print("Ungültige Eingabe.")
+function buyItem(itemName, cost) {
+    if (playerGold < cost) {
+        alert("Nicht genug Gold!");
+        return;
+    }
 
-    print(f"\n--- GAME OVER ---")
-    print(f"Dein Abenteuer endet hier. Dein letztes Gold: {spieler_gold}")
-    print("-----------------")
+    playerGold -= cost;
 
-if __name__ == "__main__":
-    main()
+    if (itemName.includes("Skin")) {
+        currentSkin = itemName.split('(')[1].replace(')', '');
+        alert(`Du hast den Skin '${currentSkin}' gekauft und ausgerüstet!`);
+    } else {
+        if (playerInventory.includes(itemName) && ["Glücks-Multiplikator", "Amulett der Erlösung"].includes(itemName)) {
+            alert("Du besitzt diesen passiven Gegenstand bereits!");
+            playerGold += cost; // Gold zurückgeben, falls Fehler
+            return;
+        }
+        playerInventory.push(itemName);
+        alert(`Du hast '${itemName}' gekauft!`);
+    }
+
+    renderShop();
+    renderStatus();
+}
+
+// --- INITIALISIERUNG ---
+window.onload = () => {
+    showMainMenu();
+};
+</script>
+
+</body>
+</html>
